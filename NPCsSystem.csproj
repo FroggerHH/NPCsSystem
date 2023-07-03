@@ -50,6 +50,9 @@
         <Reference Include="BepInEx">
           <HintPath>..\..\..\Steam\steamapps\common\Valheim\BepInEx\core\BepInEx.dll</HintPath>
         </Reference>
+        <Reference Include="CreatureManager">
+          <HintPath>..\Utils\CreatureManager.dll</HintPath>
+        </Reference>
         <Reference Include="fastJSON">
           <HintPath>..\Utils\fastJSON.dll</HintPath>
         </Reference>
@@ -101,7 +104,6 @@
         </Reference>
     </ItemGroup>
     <ItemGroup>
-        <Compile Include="AddArmorPatch.cs" />
         <Compile Include="Const.cs" />
         <Compile Include="GOext.cs" />
         <Compile Include="HouseType.cs" />
@@ -114,9 +116,9 @@
         <Compile Include="NPC_SaveData.cs" />
         <Compile Include="NPC_Town.cs" />
         <Compile Include="NPC_Brain.cs" />
+        <Compile Include="Patch\AddArmorPatch.cs" />
         <Compile Include="Patch\BuildInHousePatch.cs" />
         <Compile Include="Patch\Materials.cs" />
-        <Compile Include="Patch\MonsterAIPatch.cs" />
         <Compile Include="Patch\ZNetScenePatch.cs" />
         <Compile Include="Plugin.cs" />
         <Compile Include="ConfigurationManagerAttributes.cs" />

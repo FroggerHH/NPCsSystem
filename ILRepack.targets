@@ -5,6 +5,7 @@
             <InputAssemblies Include="$(TargetPath)"/>
             <InputAssemblies Include="D:\Slava\Coding\Utils\ServerSync.dll"/>
             <InputAssemblies Include="D:\Slava\Coding\Utils\LocationManager.dll"/>
+            <InputAssemblies Include="D:\Slava\Coding\Utils\CreatureManager.dll"/>
             <InputAssemblies Include="D:\Slava\Coding\Utils\fastJSON.dll"/>
         </ItemGroup>
         <ILRepack Parallel="true" DebugInfo="true" Internalize="true" InputAssemblies="@(InputAssemblies)"

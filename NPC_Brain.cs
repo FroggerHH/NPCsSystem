@@ -11,15 +11,14 @@ public class NPC_Brain : MonsterAI, Hoverable
 
     internal NPC_Profile profile;
     internal NPC_House house;
-    internal BaseAI baseAI;
 
     public override void Awake()
     {
-        baseAI = GetComponent<BaseAI>();
+        base.Awake();
         allNPCs.Add(this);
         profile = GetSavedProfile();
-        baseAI.SetHuntPlayer(false);
-        baseAI.m_character.m_faction = Character.Faction.Players;
+        SetHuntPlayer(false);
+        m_character.m_faction = Character.Faction.Players;
     }
 
     private void OnDestroy()
@@ -30,39 +29,29 @@ public class NPC_Brain : MonsterAI, Hoverable
     public void Init(NPC_Profile profile)
     {
         this.profile = profile;
-        baseAI.m_nview.GetZDO().Set("NPC_ID",
-            (profile.m_name + Random.Range(int.MinValue, Int32.MaxValue).ToString()).GetStableHashCode());
+        m_nview.GetZDO().Set("NPC_ID",
+            (profile.name + Random.Range(int.MinValue, Int32.MaxValue).ToString()).GetStableHashCode());
         SaveProfile(profile);
     }
 
     public void SetHouse(NPC_House npcHouse)
     {
         house = npcHouse;
-        baseAI.m_randomMoveRange = house.GetRadius();
-        baseAI.SetPatrolPoint(transform.position);
+        m_randomMoveRange = house.GetRadius();
+        SetPatrolPoint(transform.position);
     }
-
-    public int GetNPC_ID()
-    {
-        return baseAI.m_nview.GetZDO().GetInt("NPC_ID");
-    }
-
-    public void SetNPC_ID(int id)
-    {
-        baseAI.m_nview.GetZDO().Set("NPC_ID", id);
-    }
-
+    
     public NPC_Profile GetSavedProfile()
     {
-        return TownDB.GetProfile(baseAI.m_nview.GetZDO().GetString("ProfileName"));
+        return TownDB.GetProfile(m_nview.GetZDO().GetString("ProfileName"));
     }
 
     public void SaveProfile(NPC_Profile profile)
     {
-        baseAI.m_nview.GetZDO().Set("ProfileName", profile.m_name);
+       m_nview.GetZDO().Set("ProfileName", profile.name);
     }
 
-    public string GetHoverText() => profile.m_name;
+    public string GetHoverText() => profile.name;
 
-    public string GetHoverName() => profile.m_name;
+    public string GetHoverName() => profile.name;
 }

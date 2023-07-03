@@ -178,7 +178,7 @@ namespace NPCsSystem
             for (var index = 0; index < currentnpcs.Count; index++)
             {
                 var brain = currentnpcs[index];
-                toSave[index] = brain.profile.m_name;
+                toSave[index] = brain.profile.name;
             }
 
             save = JSON.ToJSON(toSave);
@@ -208,7 +208,7 @@ namespace NPCsSystem
         {
             foreach (var savedProfile in savedProfiles)
             {
-                var brain = NPC_Brain.allNPCs.ToList().Find(x => x.profile.m_name == savedProfile);
+                var brain = NPC_Brain.allNPCs.ToList().Find(x => x.profile.name == savedProfile);
 
                 brain.SetHouse(this);
             }

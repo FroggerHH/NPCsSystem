@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using ItemManager;
 using LocationManager;
+using CreatureManager;
 using ServerSync;
 using UnityEngine;
 using NPCsSystem;
@@ -165,6 +166,11 @@ internal class Plugin : BaseUnityPlugin
             MinimumDistanceFromGroup = 500,
             PreferCenter = true,
             SpawnAltitude = new(10, 200)
+        };
+        Creature PlayerNPS = new(bundle, "PlayerNPS")
+        {
+            CanHaveStars = false,
+            CanBeTamed =  false
         };
     }
 }
