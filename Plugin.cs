@@ -13,6 +13,7 @@ using UnityEngine;
 using NPCsSystem;
 using PieceManager;
 using static ItemManager.PrefabManager;
+using PrefabManager = ItemManager.PrefabManager;
 
 namespace NPCsSystem;
 
@@ -170,7 +171,9 @@ internal class Plugin : BaseUnityPlugin
         Creature PlayerNPS = new(bundle, "PlayerNPS")
         {
             CanHaveStars = false,
-            CanBeTamed =  false
+            CanBeTamed = false
         };
+
+        PrefabManager.RegisterPrefab(bundle, "TestNullTown");
     }
 }

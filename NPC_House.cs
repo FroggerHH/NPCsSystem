@@ -5,6 +5,9 @@ using System.Linq;
 using fastJSON;
 using UnityEngine;
 using static NPCsSystem.Plugin;
+using static ItemDrop;
+using static ItemDrop.ItemData;
+using static NPCsSystem.HouseType;
 
 namespace NPCsSystem
 {
@@ -15,15 +18,17 @@ namespace NPCsSystem
 
         //private Location m_location;
         internal ZNetView m_view;
-        public HouseType houseType;
-        public NPC_Town town;
-
-        public NPC_Profession professionForProfessionHouse;
+        internal NPC_Town town;
         private Bed bed;
         private List<CraftingStation> craftingStations = new List<CraftingStation>();
+        private List<Container> chests = new List<Container>();
+        internal bool isAvailable = true;
+        internal List<NPC_Brain> currentnpcs = new();
+
+        public NPC_Profession professionForProfessionHouse;
+        public int maxNPCs = 1;
         [SerializeField] private float radius = 10;
-        public bool isAvailable = true;
-        public List<NPC_Brain> currentnpcs;
+        public HouseType houseType = HouseType.Housing;
 
         private void Awake()
         {
@@ -87,6 +92,12 @@ namespace NPCsSystem
                     AddCraftingStation(piece.GetComponent<CraftingStation>());
                     continue;
                 }
+
+                if (piece.TryGetComponent(out Container container))
+                {
+                    AddChest(container);
+                    continue;
+                }
             }
 
             Load();
@@ -112,7 +123,6 @@ namespace NPCsSystem
 
             return null;
         }
-
 
         public static HashSet<NPC_House> FindAllHousesForTown(NPC_Town town)
         {
@@ -145,6 +155,21 @@ namespace NPCsSystem
             craftingStations.Remove(craftingStatione);
         }
 
+        public List<CraftingStation> GetCraftingStations()
+        {
+            return craftingStations;
+        }
+
+        public void AddChest(Container container)
+        {
+            chests.Add(container);
+        }
+
+        public void RemoveChest(Container craftingStatione)
+        {
+            chests.Remove(craftingStatione);
+        }
+
         private void OnDrawGizmos()
         {
             Gizmos.color = Color.gray;
@@ -163,7 +188,7 @@ namespace NPCsSystem
             Save();
         }
 
-        public Vector3 GetBedPos() => bed.transform.position;
+        public Vector3 GetBedPos() => bed ? bed.transform.position : transform.position;
 
         private void Save()
         {
@@ -220,6 +245,106 @@ namespace NPCsSystem
             {
                 Utils.FindChild(house.transform, "houseWalls").gameObject.SetActive(flag);
             }
+        }
+
+        internal bool IsProfessionHouse() => (houseType == ProfessionHouse || houseType == HousingAndProfessionHouse ||
+                                              houseType == FoodAndProfessionHouse || houseType == All)
+        //&& craftingStations.Count > 0
+        ;
+
+        internal bool IsFoodHouse() => (houseType == Food || houseType == FoodAndProfessionHouse ||
+                                        houseType == HousingAndFood || houseType == All)
+        //&&  chests.Count > 0
+        ;
+
+        public bool IsHousingHouse() => houseType == Housing || houseType == HousingAndFood ||
+                                        houseType == HousingAndProfessionHouse || houseType == All;
+
+        public List<ItemData> GetHouseInventory()
+        {
+            List<ItemData> houseInventory = new();
+            foreach (var chest in chests)
+            {
+                foreach (var item in chest.GetInventory().GetAllItems())
+                {
+                    houseInventory.Add(item);
+                }
+            }
+
+            return houseInventory;
+        }
+
+        public bool RemoveItemFromInventory(string name)
+        {
+            foreach (var chest in chests)
+            {
+                var inventory = chest.GetInventory();
+                if (!inventory.ContainsItemByName(name)) continue;
+
+                var item = inventory.m_inventory.Find(x => x.m_shared.m_name == name);
+                return inventory.RemoveOneItem(item);
+            }
+
+            return false;
+        }
+
+        public List<ItemData> GetItemsByType(ItemType type, out Container container)
+        {
+            container = null;
+            var items = new List<ItemData>();
+            foreach (var chest in chests)
+            {
+                foreach (var item in chest.GetInventory().GetAllItems())
+                {
+                    if (item.m_shared.m_itemType == type)
+                    {
+                        container = chest;
+                        items.Add(item);
+                    }
+                }
+
+                if (container) return items;
+            }
+
+            return items;
+        }
+
+        public bool HasBed() => bed;
+        public Bed GetBed() => bed;
+
+        public bool AddItem(ItemDrop itemData)
+        {
+            foreach (var chest in chests)
+            {
+                if (chest.GetInventory().AddItem(itemData.gameObject, 1))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public bool HaveEmptySlot()
+        {
+            foreach (var chest in chests)
+            {
+                if (chest.GetInventory().HaveEmptySlot()) 
+                    return true;
+            }
+
+            return false;
+        }
+
+        public bool AddItem(string prefabName)
+        {
+            foreach (var chest in chests)
+            {
+                if (chest.GetInventory().AddItem(ZNetScene.instance.GetPrefab(prefabName), 1))
+                    return true;
+            }
+
+            return false;
         }
     }
 }

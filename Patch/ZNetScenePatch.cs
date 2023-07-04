@@ -17,10 +17,6 @@ public class ZNetScenePatch
     public static void Patch(ZNetScene __instance)
     {
         TownDB.Initialize();
-        var prefab = __instance.GetPrefab("Bandit");
-        if (!prefab.GetComponent<NPC_Brain>()) prefab.AddComponent<NPC_Brain>();
-        var zNetView = prefab.GetComponent<ZNetView>();
-        zNetView.m_persistent = true;
-        zNetView.m_type = ZDO.ObjectType.Default;
+        
     }
 }

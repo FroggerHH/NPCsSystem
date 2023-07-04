@@ -66,6 +66,12 @@
         <Reference Include="System.Core" />
         <Reference Include="System.Data" />
         <Reference Include="System.Xml" />
+        <Reference Include="UnityEditor">
+          <HintPath>..\..\Unity\Unity Hub\versions\2020.3.36f1\Editor\Data\Managed\UnityEngine\UnityEditor.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEditor.CoreModule">
+          <HintPath>..\..\Unity\Unity Hub\versions\2020.3.36f1\Editor\Data\Managed\UnityEngine\UnityEditor.CoreModule.dll</HintPath>
+        </Reference>
         <Reference Include="UnityEngine">
           <HintPath>..\..\Unity\Unity Hub\versions\2020.3.36f1\Editor\Data\Managed\UnityEngine\UnityEngine.dll</HintPath>
         </Reference>
@@ -87,6 +93,9 @@
         <Reference Include="UnityEngine.ParticleSystemModule">
           <HintPath>..\..\Unity\Unity Hub\versions\2020.3.36f1\Editor\Data\Managed\UnityEngine\UnityEngine.ParticleSystemModule.dll</HintPath>
         </Reference>
+        <Reference Include="UnityEngine.PhysicsModule">
+          <HintPath>..\..\Unity\Unity Hub\versions\2020.3.36f1\Editor\Data\Managed\UnityEngine\UnityEngine.PhysicsModule.dll</HintPath>
+        </Reference>
         <Reference Include="UnityEngine.TextCoreModule">
           <HintPath>..\..\Unity\Unity Hub\versions\2020.3.36f1\Editor\Data\Managed\UnityEngine\UnityEngine.TextCoreModule.dll</HintPath>
         </Reference>
@@ -107,24 +116,28 @@
         <Compile Include="Const.cs" />
         <Compile Include="GOext.cs" />
         <Compile Include="HouseType.cs" />
+        <Compile Include="ListExt.cs" />
         <Compile Include="Managers\ItemManager.cs" />
         <Compile Include="Managers\PieceManager.cs" />
         <Compile Include="NPC_Gender.cs" />
         <Compile Include="NPC_Profession.cs" />
         <Compile Include="NPC_Profile.cs" />
         <Compile Include="NPC_House.cs" />
-        <Compile Include="NPC_SaveData.cs" />
         <Compile Include="NPC_Town.cs" />
         <Compile Include="NPC_Brain.cs" />
         <Compile Include="Patch\AddArmorPatch.cs" />
         <Compile Include="Patch\BuildInHousePatch.cs" />
         <Compile Include="Patch\Materials.cs" />
+        <Compile Include="Patch\NotkillNPCs.cs" />
+        <Compile Include="Patch\OnContainerChanged.cs" />
+        <Compile Include="Patch\UpdateNPC_AI.cs" />
         <Compile Include="Patch\ZNetScenePatch.cs" />
         <Compile Include="Plugin.cs" />
         <Compile Include="ConfigurationManagerAttributes.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
         <Compile Include="StringExtention.cs" />
         <Compile Include="TownDB.cs" />
+        <Compile Include="TradeItem.cs" />
     </ItemGroup>
     <ItemGroup>
       <None Include="App.config" />

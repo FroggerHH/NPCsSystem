@@ -14,7 +14,7 @@ namespace NPCsSystem;
 public class Materials
 {
     [HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.Awake)), HarmonyPostfix, HarmonyWrapSafe]
-    public static void FixMaterials()
+    public static void NPCsSystemFixMaterials()
     {
         FixBundle(bundle);
     }
@@ -136,7 +136,7 @@ public class Materials
                 if (!renderer) continue;
                 if (!renderer.m_material)
                 {
-                    //DebugError($"No material found for InstanceRenderer {renderer.name}", true);
+                    DebugError($"No material found for InstanceRenderer {renderer.name}", true);
                     continue;
                 }
 
@@ -147,31 +147,33 @@ public class Materials
 
     private static void FixRenderers(GameObject asset)
     {
+        if (!asset) return;
         var renderers = asset.GetComponentsInChildren<Renderer>();
-        if (renderers != null && renderers.Length > 0)
+        if (renderers == null || renderers.Length == 0) return;
+
+        foreach (Renderer? renderer in renderers)
         {
-            foreach (Renderer renderer in renderers)
+            if (!renderer) continue;
+            foreach (Material? material in renderer.sharedMaterials)
             {
-                if (!renderer) continue;
-                foreach (Material material in renderer.sharedMaterials)
-                {
-                    if (!material) continue;
-                    string name = material.shader.name;
-                    material.shader = Shader.Find(name);
-                    //Debug($"Shader for {asset.name}({renderer.name}) set to {material.shader.name}");
-                }
+                if (!material) continue;
+                var shader = material.shader;
+                if (!shader) return;
+                string name = shader.name;
+                material.shader = Shader.Find(name);
             }
         }
     }
 
     private static void FixEffect(EffectList effectList, string objName)
     {
+        if (effectList == null || effectList.m_effectPrefabs == null || effectList.m_effectPrefabs.Length == 0) return;
         foreach (EffectList.EffectData effectData in effectList.m_effectPrefabs)
         {
             if (effectData == null) continue;
             if (!effectData.m_prefab == null)
             {
-                //DebugError($"No prefab found for place effect of {objName}", true);
+                DebugError($"No prefab found for place effect of {objName}", true);
                 continue;
             }
 

@@ -1,9 +1,10 @@
 ﻿using HarmonyLib;
 using ItemManager;
 using UnityEngine;
+using static NPCsSystem.Plugin;
 using UnityEngine.SceneManagement;
 
-namespace Bandidos;
+namespace NPCsSystem;
 
 [HarmonyPatch]
 internal class AddArmorPatch
@@ -17,21 +18,28 @@ internal class AddArmorPatch
         var HelmetBronze = ZNetScene.instance.GetPrefab("HelmetBronze");
         var AxeBronze = ZNetScene.instance.GetPrefab("AxeBronze");
         var ShieldBronzeBuckler = ZNetScene.instance.GetPrefab("ShieldBronzeBuckler");
-        
+
         __instance.GiveDefaultItem(ArmorBronzeChest);
         __instance.GiveDefaultItem(ArmorBronzeLegs);
-        __instance.GiveDefaultItem(AxeBronze);//Eu dou itens para a turba
+        __instance.GiveDefaultItem(AxeBronze); //Eu dou itens para a turba
         __instance.GiveDefaultItem(HelmetBronze);
         __instance.GiveDefaultItem(ShieldBronzeBuckler);
         return false;
     }
-    
-    [HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.Awake)), HarmonyPostfix]
+
+    [HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.Awake)), HarmonyPostfix, HarmonyWrapSafe]
     public static void ZNetScenePatch(ZNetScene __instance)
     {
-        var PlayerNPS = __instance.GetPrefab("PlayerNPS");
+        var PlayerNPS = bundle.LoadAsset<GameObject>("PlayerNPS");
+        Debug($"PlayerNPS is {PlayerNPS}");
 
-        PlayerNPS.GetComponent<VisEquipment>().m_bodyModel.material = //Estou mudando o material do mob para o original
-            __instance.GetPrefab("Player").GetComponent<VisEquipment>().m_bodyModel.material;
+        var visEquipment = PlayerNPS.GetComponent<VisEquipment>();
+        Debug($"visEquipment is {visEquipment}");
+        Debug($"m_bodyModel is {visEquipment.m_bodyModel}");
+        Debug($"material is {visEquipment.m_bodyModel.material}");
+        var player = __instance.GetPrefab("Player");
+        Debug($"player is {player}");
+        visEquipment.m_bodyModel.material = //Estou mudando o material do mob para o original
+            player.GetComponent<VisEquipment>().m_bodyModel.material;
     }
 }

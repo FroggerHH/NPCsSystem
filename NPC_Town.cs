@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using static NPCsSystem.Plugin;
+using static NPCsSystem.HouseType;
 
 namespace NPCsSystem
 {
@@ -44,7 +45,7 @@ namespace NPCsSystem
                 if (i >= houses.Count) continue;
                 var profile = npcs[i];
                 NPC_Brain npc = null;
-                var house = FindHouseForNPC(profile);
+                var house = FindHouse(profile);
                 if (!house)
                 {
                     DebugError($"Can't find house for {profile}");
@@ -60,27 +61,73 @@ namespace NPCsSystem
             Debug("NPCs spawned");
         }
 
-        private NPC_House FindHouseForNPC(NPC_Profile profile)
+        private NPC_House FindHouse(NPC_Profile profile)
         {
+            List<NPC_House> returnHouses = new();
+
             foreach (var house in houses)
             {
-                if (!house.isAvailable) continue;
-                switch (house.houseType)
+                var ht = house.houseType;
+                if (!house.isAvailable || ht == None) continue;
+                // switch (house.houseType)
+                // {
+                //     case None:
+                //         break;
+                //     case Housing:
+                //         if (profile.m_profession == NPC_Profession.None) return house;
+                //         break;
+                //     case HouseType.ProfessionHouse:
+                //         if (profile.m_profession == house.professionForProfessionHouse) return house;
+                //         break;
+                // }
+                if (house.IsProfessionHouse())
                 {
-                    case HouseType.None:
-                        break;
-                    case HouseType.Housing:
-                        if (profile.m_profession == NPC_Profession.None) return house;
-                        break;
-                    case HouseType.ProfessionHouse:
-                        if (profile.m_profession == house.professionForProfessionHouse) return house;
-                        break;
+                    if (profile.m_profession == house.professionForProfessionHouse) returnHouses.Add(house);
+                }
+
+                if (house.IsHousingHouse() && profile.m_profession == NPC_Profession.None)
+                {
+                    returnHouses.Add(house);
                 }
             }
 
-            return null;
+            // var arr = returnHouses.ToArray();
+            // Array.Sort(arr, DistanceComparison);
+            // returnHouses = arr.ToList();
+            // if (returnHouses.Count == 0) return null;
+            return returnHouses.FirstOrDefault();
         }
 
+        internal NPC_House FindFoodHouse()
+        {
+            List<NPC_House> returnHouses = new();
+            foreach (var house in houses)
+            {
+                var ht = house.houseType;
+                if (ht == None) continue;
+                if (house.IsFoodHouse())
+                {
+                    returnHouses.Add(house);
+                }
+            }
+
+
+            // var arr = returnHouses.ToArray();
+            // Array.Sort(arr, DistanceComparison);
+            // returnHouses = arr.ToList();
+            // if (returnHouses.Count == 0) return null;
+             return returnHouses.FirstOrDefault();
+        }
+
+        int DistanceComparison(NPC_House a, NPC_House b)
+        {
+            if (a == null) return (b == null) ? 0 : -1;
+            if (b == null) return 1;
+
+            var distanceA = (a.transform.position - this.transform.position).sqrMagnitude;
+            var distanceB = (b.transform.position - this.transform.position).sqrMagnitude;
+            return distanceA.CompareTo(distanceB);
+        }
 
         private void OnValidate()
         {

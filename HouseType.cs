@@ -1,9 +1,17 @@
+using System;
+
 namespace NPCsSystem
 {
-    public enum HouseType
+    public enum HouseType : int
     {
         None,
         Housing,
-        ProfessionHouse
+        ProfessionHouse,
+        Food,
+        Other,
+        HousingAndProfessionHouse,
+        HousingAndFood,
+        FoodAndProfessionHouse,
+        All
     }
 }

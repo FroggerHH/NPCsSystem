@@ -12,6 +12,7 @@ namespace NPCsSystem;
 public static class TownDB
 {
     private static List<NPC_Profile> allProfiles = new();
+
     public static void Initialize()
     {
         var WoodNPSHouse = PrefabManager.RegisterPrefab(bundle, "WoodNPSHouse").GetComponentInChildren<NPC_House>();
@@ -19,8 +20,30 @@ public static class TownDB
         var profiles = Resources.FindObjectsOfTypeAll<NPC_Profile>().ToList();
         foreach (var profile in profiles)
         {
-            if(string.IsNullOrEmpty(profile.prefabByName) || string.IsNullOrWhiteSpace(profile.prefabByName)) continue;
-            profile.m_prefab = ZNetScene.instance.GetPrefab(profile.prefabByName);
+            if (!string.IsNullOrEmpty(profile.prefabByName) && !string.IsNullOrWhiteSpace(profile.prefabByName))
+            {
+                profile.m_prefab = ZNetScene.instance.GetPrefab(profile.prefabByName);
+            }
+
+            ;
+
+            foreach (var item in profile.itemsToBuy)
+            {
+                if (!string.IsNullOrEmpty(item.prefabName) && !string.IsNullOrWhiteSpace(item.prefabName))
+                    item.prefab = ZNetScene.instance.GetPrefab(item.prefabName).GetComponent<ItemDrop>();
+            }
+
+            foreach (var item in profile.itemsToSell)
+            {
+                if (!string.IsNullOrEmpty(item.prefabName) && !string.IsNullOrWhiteSpace(item.prefabName))
+                    item.prefab = ZNetScene.instance.GetPrefab(item.prefabName).GetComponent<ItemDrop>();
+            }
+
+            foreach (var item in profile.itemsToCraft)
+            {
+                if (!string.IsNullOrEmpty(item.prefabName) && !string.IsNullOrWhiteSpace(item.prefabName))
+                    item.prefab = ZNetScene.instance.GetPrefab(item.prefabName).GetComponent<ItemDrop>();
+            }
         }
 
         allProfiles = profiles;

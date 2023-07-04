@@ -36,6 +36,11 @@ public class BuildInHousePatch
         {
             house.RemoveCraftingStation(craftingStatione);
         }
+
+        if (__instance.TryGetComponent(out Container container))
+        {
+            house.RemoveChest(container);
+        }
     }
 
     private static IEnumerator WaitForPlace(Piece piece)
@@ -58,6 +63,11 @@ public class BuildInHousePatch
         if (piece.TryGetComponent(out CraftingStation craftingStatione))
         {
             house.AddCraftingStation(craftingStatione);
+        }
+
+        if (piece.TryGetComponent(out Container container))
+        {
+            house.AddChest(container);
         }
     }
 }
