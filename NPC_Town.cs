@@ -20,6 +20,38 @@ namespace NPCsSystem
         public float radius;
         [SerializeField] private int housesNeded = 5;
 
+        private void SetReferenses()
+        {
+            if (!m_view)
+                m_view = GetComponent<ZNetView>();
+
+            if (!m_view) DebugError($"[NPCsSystem] Can't find ZNetView component on {gameObject.name}");
+
+            if (m_view)
+            {
+                m_view.m_persistent = true;
+                m_view.m_type = ZDO.ObjectType.Default;
+            }
+        }
+
+        public float GetRadius() => radius;
+
+        private void OnDrawGizmos()
+        {
+            Gizmos.color = Color.gray;
+            Gizmos.matrix = Matrix4x4.TRS(this.transform.position + new Vector3(0.0f, -0.01f, 0.0f),
+                Quaternion.identity, new Vector3(1f, 1f / 1000f, 1f));
+            Gizmos.DrawSphere(Vector3.zero, GetRadius());
+            //Utils.DrawGizmoCircle(this.transform.position, this.m_noBuildRadiusOverride, 32);
+            Gizmos.matrix = Matrix4x4.identity;
+            Utils.DrawGizmoCircle(this.transform.position, GetRadius(), 32);
+        }
+
+        private void Reset()
+        {
+            SetReferenses();
+        }
+
         private void Awake()
         {
             towns.Add(this);
@@ -98,25 +130,20 @@ namespace NPCsSystem
             return returnHouses.FirstOrDefault();
         }
 
-        internal NPC_House FindFoodHouse()
+        internal List<NPC_House> FindFoodHouses()
         {
             List<NPC_House> returnHouses = new();
             foreach (var house in houses)
             {
                 var ht = house.houseType;
                 if (ht == None) continue;
-                if (house.IsFoodHouse())
+                if (house.IsFoodHouse() && house.HaveFood())
                 {
                     returnHouses.Add(house);
                 }
             }
 
-
-            // var arr = returnHouses.ToArray();
-            // Array.Sort(arr, DistanceComparison);
-            // returnHouses = arr.ToList();
-            // if (returnHouses.Count == 0) return null;
-             return returnHouses.FirstOrDefault();
+            return returnHouses;
         }
 
         int DistanceComparison(NPC_House a, NPC_House b)
@@ -127,29 +154,6 @@ namespace NPCsSystem
             var distanceA = (a.transform.position - this.transform.position).sqrMagnitude;
             var distanceB = (b.transform.position - this.transform.position).sqrMagnitude;
             return distanceA.CompareTo(distanceB);
-        }
-
-        private void OnValidate()
-        {
-        }
-
-        private void Reset()
-        {
-            SetReferenses();
-        }
-
-        private void SetReferenses()
-        {
-            if (!m_view)
-                m_view = GetComponent<ZNetView>();
-
-            if (!m_view) DebugError($"[NPCsSystem] Can't find ZNetView component on {gameObject.name}");
-
-            if (m_view)
-            {
-                m_view.m_persistent = true;
-                m_view.m_type = ZDO.ObjectType.Default;
-            }
         }
 
         public static NPC_Town FindTown(Vector3 position)
@@ -163,18 +167,6 @@ namespace NPCsSystem
             return null;
         }
 
-        public float GetRadius() => radius;
-
-        private void OnDrawGizmos()
-        {
-            Gizmos.color = Color.gray;
-            Gizmos.matrix = Matrix4x4.TRS(this.transform.position + new Vector3(0.0f, -0.01f, 0.0f),
-                Quaternion.identity, new Vector3(1f, 1f / 1000f, 1f));
-            Gizmos.DrawSphere(Vector3.zero, GetRadius());
-            //Utils.DrawGizmoCircle(this.transform.position, this.m_noBuildRadiusOverride, 32);
-            Gizmos.matrix = Matrix4x4.identity;
-            Utils.DrawGizmoCircle(this.transform.position, GetRadius(), 32);
-        }
 
         public void RegisterHouse(NPC_House house)
         {
@@ -185,6 +177,43 @@ namespace NPCsSystem
                 Debug("Initing town");
                 TrySpawnNpcs();
             }
+        }
+
+        public WearNTear FindWornBuilding()
+        {
+            var wornBuildings = FindAllWornBuilding();
+
+            return Helper.Nearest(wornBuildings, transform.position);
+        }
+
+        public List<WearNTear> FindAllWornBuilding()
+        {
+            var wearNTears = new List<WearNTear>();
+            var buildings = FindAllBuilding();
+            foreach (var wearNTear in buildings)
+            {
+                if (wearNTear.GetHealthPercentage() < 0.8f)
+                {
+                    wearNTears.Add(wearNTear);
+                }
+            }
+
+            return wearNTears;
+        }
+
+        public List<WearNTear> FindAllBuilding()
+        {
+            var buildings = new List<Piece>();
+            var wearNTears = new List<WearNTear>();
+            Piece.GetAllPiecesInRadius(transform.position, GetRadius(), buildings);
+            foreach (var piece in buildings)
+            {
+                var wearNTear = piece.GetComponent<WearNTear>();
+                if (!wearNTear) continue;
+                wearNTears.Add(wearNTear);
+            }
+
+            return wearNTears;
         }
     }
 }

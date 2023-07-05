@@ -22,13 +22,47 @@ namespace NPCsSystem
         private Bed bed;
         private List<CraftingStation> craftingStations = new List<CraftingStation>();
         private List<Container> chests = new List<Container>();
+        private List<Door> doors = new List<Door>();
         internal bool isAvailable = true;
-        internal List<NPC_Brain> currentnpcs = new();
+        internal List<NPC_Brain> currentnpcs = new List<NPC_Brain>();
 
         public NPC_Profession professionForProfessionHouse;
         public int maxNPCs = 1;
         [SerializeField] private float radius = 10;
         public HouseType houseType = HouseType.Housing;
+
+        public float GetRadius() => radius;
+
+        private void Reset()
+        {
+            SetReferenses();
+        }
+
+        private void SetReferenses()
+        {
+            if (!m_view)
+                m_view = GetComponent<ZNetView>();
+
+            if (!m_view) DebugError($"[NPCsSystem] Can't find ZNetView component on {gameObject.name}");
+
+            if (m_view)
+            {
+                m_view.m_persistent = true;
+                m_view.m_type = ZDO.ObjectType.Default;
+            }
+        }
+
+        private void OnDrawGizmos()
+        {
+            Gizmos.color = Color.gray;
+            Gizmos.matrix = Matrix4x4.TRS(this.transform.position + new Vector3(0.0f, -0.01f, 0.0f),
+                Quaternion.identity, new Vector3(1f, 1f / 1000f, 1f));
+            Gizmos.DrawSphere(Vector3.zero, GetRadius());
+            //Utils.DrawGizmoCircle(this.transform.position, this.m_noBuildRadiusOverride, 32);
+            Gizmos.matrix = Matrix4x4.identity;
+            Utils.DrawGizmoCircle(this.transform.position, GetRadius(), 32);
+        }
+
 
         private void Awake()
         {
@@ -50,29 +84,6 @@ namespace NPCsSystem
             allHouses.Remove(this);
         }
 
-
-        private void OnValidate()
-        {
-        }
-
-        private void Reset()
-        {
-            SetReferenses();
-        }
-
-        private void SetReferenses()
-        {
-            if (!m_view)
-                m_view = GetComponent<ZNetView>();
-
-            if (!m_view) DebugError($"[NPCsSystem] Can't find ZNetView component on {gameObject.name}");
-
-            if (m_view)
-            {
-                m_view.m_persistent = true;
-                m_view.m_type = ZDO.ObjectType.Default;
-            }
-        }
 
         public void Init(NPC_Town town)
         {
@@ -96,6 +107,12 @@ namespace NPCsSystem
                 if (piece.TryGetComponent(out Container container))
                 {
                     AddChest(container);
+                    continue;
+                }
+
+                if (piece.TryGetComponent(out Door door))
+                {
+                    AddDoor(door);
                     continue;
                 }
             }
@@ -138,11 +155,13 @@ namespace NPCsSystem
         }
 
         //public float GetRadius() => m_location.GetMaxRadius();
-        public float GetRadius() => radius;
-
         public void SetBed(Bed bed)
         {
             this.bed = bed;
+            if (bed && currentnpcs.Count > 1)
+            {
+                bed.SetOwner(0, currentnpcs[0].profile.name);
+            }
         }
 
         public void AddCraftingStation(CraftingStation craftingStatione)
@@ -170,16 +189,16 @@ namespace NPCsSystem
             chests.Remove(craftingStatione);
         }
 
-        private void OnDrawGizmos()
+        public void AddDoor(Door door)
         {
-            Gizmos.color = Color.gray;
-            Gizmos.matrix = Matrix4x4.TRS(this.transform.position + new Vector3(0.0f, -0.01f, 0.0f),
-                Quaternion.identity, new Vector3(1f, 1f / 1000f, 1f));
-            Gizmos.DrawSphere(Vector3.zero, GetRadius());
-            //Utils.DrawGizmoCircle(this.transform.position, this.m_noBuildRadiusOverride, 32);
-            Gizmos.matrix = Matrix4x4.identity;
-            Utils.DrawGizmoCircle(this.transform.position, GetRadius(), 32);
+            doors.Add(door);
         }
+
+        public void RemoveDoor(Door door)
+        {
+            doors.Remove(door);
+        }
+
 
         public void RegisterNPC(NPC_Brain npc)
         {
@@ -209,8 +228,6 @@ namespace NPCsSystem
             save = JSON.ToJSON(toSave);
 
             m_view.GetZDO().Set("save", save);
-
-            Debug($"House saved {save}");
         }
 
         private void Load()
@@ -220,7 +237,6 @@ namespace NPCsSystem
             var savedProfiles = JSON.ToObject<string[]>(save);
 
             StartCoroutine(LoadNPCsIEnumerator(savedProfiles));
-            Debug($"House loaded {save}");
         }
 
         private IEnumerator LoadNPCsIEnumerator(string[] savedProfiles)
@@ -254,8 +270,7 @@ namespace NPCsSystem
 
         internal bool IsFoodHouse() => (houseType == Food || houseType == FoodAndProfessionHouse ||
                                         houseType == HousingAndFood || houseType == All)
-        //&&  chests.Count > 0
-        ;
+                                       && chests.Count > 0;
 
         public bool IsHousingHouse() => houseType == Housing || houseType == HousingAndFood ||
                                         houseType == HousingAndProfessionHouse || houseType == All;
@@ -329,7 +344,7 @@ namespace NPCsSystem
         {
             foreach (var chest in chests)
             {
-                if (chest.GetInventory().HaveEmptySlot()) 
+                if (chest.GetInventory().HaveEmptySlot())
                     return true;
             }
 
@@ -345,6 +360,29 @@ namespace NPCsSystem
             }
 
             return false;
+        }
+
+        public bool HaveFood()
+        {
+            return GetItemsByType(ItemDrop.ItemData.ItemType.Consumable, out Container _).Count > 0;
+        }
+
+        public void CloseAllDoors()
+        {
+            foreach (var door in doors)
+            {
+                door.m_nview.GetZDO().Set(ZDOVars.s_state, 0, false);
+                door.UpdateState();
+            }
+        }
+
+        public void OpenAllDoors()
+        {
+            foreach (var door in doors)
+            {
+                door.m_nview.GetZDO().Set(ZDOVars.s_state, 1, false);
+                door.UpdateState();
+            }
         }
     }
 }

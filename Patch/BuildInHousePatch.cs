@@ -41,6 +41,11 @@ public class BuildInHousePatch
         {
             house.RemoveChest(container);
         }
+
+        if (__instance.TryGetComponent(out Door door))
+        {
+            house.RemoveDoor(door);
+        }
     }
 
     private static IEnumerator WaitForPlace(Piece piece)

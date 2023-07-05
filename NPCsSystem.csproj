@@ -116,6 +116,7 @@
         <Compile Include="Const.cs" />
         <Compile Include="GOext.cs" />
         <Compile Include="HouseType.cs" />
+        <Compile Include="InventoryExt.cs" />
         <Compile Include="ListExt.cs" />
         <Compile Include="Managers\ItemManager.cs" />
         <Compile Include="Managers\PieceManager.cs" />
@@ -129,6 +130,7 @@
         <Compile Include="Patch\BuildInHousePatch.cs" />
         <Compile Include="Patch\Materials.cs" />
         <Compile Include="Patch\NotkillNPCs.cs" />
+        <Compile Include="Patch\NPCHoverText.cs" />
         <Compile Include="Patch\OnContainerChanged.cs" />
         <Compile Include="Patch\UpdateNPC_AI.cs" />
         <Compile Include="Patch\ZNetScenePatch.cs" />
@@ -138,6 +140,7 @@
         <Compile Include="StringExtention.cs" />
         <Compile Include="TownDB.cs" />
         <Compile Include="TradeItem.cs" />
+        <Compile Include="Helper.cs" />
     </ItemGroup>
     <ItemGroup>
       <None Include="App.config" />

@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
 using Random = UnityEngine.Random;
+using Timer = System.Timers.Timer;
 using static NPCsSystem.Plugin;
 using static ItemDrop;
 using static ItemDrop.ItemData;
@@ -27,13 +28,13 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     public bool m_despawnInDay;
     public bool m_eventCreature;
     public float m_interceptTime;
-    public float m_pauseTimer;
+    private float m_pauseTimer;
+    private System.Timers.Timer m_professionBehaviorTimer;
+    public float m_professionBehaviorInterval = 150;
     public float m_updateTargetTimer;
     public float m_interceptTimeMax;
     public float m_interceptTimeMin;
-    public float m_wakeUpDelayMax;
     public EffectList m_wakeupEffects = new EffectList();
-    public float m_wakeUpDelayMin;
     public float m_sleepDelay = 0.5f;
     public Character m_targetCreature;
     public Vector3 m_lastKnownTargetPos = Vector3.zero;
@@ -54,29 +55,30 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     public float m_unableToAttackTargetTimer;
     public float m_timeSinceSensedTargetCreature;
     public float m_maxChaseDistance;
-    [Header("Consume items")] public float m_consumeRange = 2f;
-    public float m_consumeSearchInterval = 10f;
-    public NPC_House foodHouse;
+    [Header("Food")] public float m_consumeSearchInterval = 10f;
+    private NPC_House foodHouse;
     public float m_wakeupRange = 15;
-
-    [FormerlySerializedAs("m_consumeTarget")]
-    public ItemData m_currentConsumeItem;
-
+    private ItemData m_currentConsumeItem;
     public float m_consumeSearchTimer;
-    public Action<ItemData> m_onConsumedItem;
+    private Action<ItemData> m_onConsumedItem;
     public float m_eatDuration = 30f;
     private Container m_containerToGrab;
+    public EffectList m_sootheEffect = new EffectList();
 
     [Header("Attach")] public bool m_attached;
     private string m_attachAnimation = "";
     private bool m_sleeping;
     private Transform m_attachPoint;
     private Vector3 m_detachOffset = Vector3.zero;
+    private Vector3 m_attachOffset = Vector3.zero;
     private Transform m_attachPointCamera;
     private Collider[] m_attachColliders;
     public Text ai_statusText;
     private bool inCrafting = false;
-
+    private bool inProfessionBehavior = false;
+    private GameObject hammerMark;
+    private WearNTear targetBuilding;
+    private Vector3 lootPos;
 
     public override void Awake()
     {
@@ -84,11 +86,10 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         m_despawnInDay = false;
         m_eventCreature = false;
         m_animator.SetBool(MonsterAI.s_sleeping, IsSleeping());
+        m_onConsumedItem += OnConsumedItem;
         m_interceptTime = Random.Range(m_interceptTimeMin, m_interceptTimeMax);
         m_pauseTimer = Random.Range(0, m_circleTargetInterval);
         m_updateTargetTimer = Random.Range(0, 2f);
-        if (m_wakeUpDelayMin > 0 || m_wakeUpDelayMax > 0)
-            m_sleepDelay = Random.Range(m_wakeUpDelayMin, m_wakeUpDelayMax);
         SetHuntPlayer(false);
         var savedProfile = GetSavedProfile();
         profile = savedProfile == null ? defaultProfile : savedProfile;
@@ -100,6 +101,8 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
         m_afraidOfFire = false;
         ai_statusText = Utils.FindChild(transform, "Ai status").GetComponent<Text>();
+        hammerMark = Utils.FindChild(transform, "HammerMark").gameObject;
+        //m_pathAgentType = 0;
     }
 
     public void UpdateAiStatus()
@@ -117,7 +120,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             return;
         }
 
-        human.m_name = profile.name;
+        human.m_name = profile.name + $"({profile.m_profession})";
         name = profile.name + " (Clone)";
 
         if (profile.IsWarrior()) human.EquipBestWeapon(null, null, null, null);
@@ -126,8 +129,8 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     public new void UpdateAI(float dt)
     {
+        hammerMark.SetActive(inProfessionBehavior);
         if (!m_nview.IsOwner()) return;
-        UpdateAiStatus();
         if (IsSleeping()) UpdateSleep(dt);
         else
         {
@@ -154,174 +157,197 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             }
             else
             {
-                // if (m_targetCreature)
-                // {
-                //     if (EffectArea.IsPointInsideArea(
-                //             m_targetCreature.transform.position, EffectArea.Type.PrivateProperty))
-                //     {
-                //         // Flee(dt, m_targetCreature.transform.position);
-                //         // m_aiStatus = "Leaving someone else's territory";
-                //         // return;
-                //TODO: Leaving someone else's territory
-                //     }
-                // }
-                // else
-                // {
-                //     if (PrivateArea.InsideFactionArea(transform.position, Character.Faction.Players))
-                //     {
-                //         Flee(dt, transform.position);
-                //         m_aiStatus = "Avoid someone else's territory";
-                //         return;
-                //     }
-                // }
-
-
-                if (!IsAlerted() && UpdateConsumeItem(human, dt))
+                if (m_aiStatus == "Target dead, go for loot")
                 {
-                    m_aiStatus = "Consume item";
+                    PickupLootFromDeadEnemy(dt);
                 }
-                else
+
+
+                //if (IsAlerted())
+                //{
+                if (m_circleTargetInterval > 0f && m_targetCreature && IsAlerted())
                 {
-                    if (m_circleTargetInterval > 0f && m_targetCreature)
+                    m_pauseTimer += dt;
+                    if (m_pauseTimer > m_circleTargetInterval)
                     {
-                        m_pauseTimer += dt;
-                        if (m_pauseTimer > m_circleTargetInterval)
-                        {
-                            if (m_pauseTimer > m_circleTargetInterval + m_circleTargetDuration)
-                                m_pauseTimer = Random.Range(0f, m_circleTargetInterval / 10f);
-                            RandomMovementArroundPoint(dt, m_targetCreature.transform.position, m_circleTargetDistance,
-                                IsAlerted());
-                            m_aiStatus = "Attack pause";
-                            return;
-                        }
+                        if (m_pauseTimer > m_circleTargetInterval + m_circleTargetDuration)
+                            m_pauseTimer = Random.Range(0f, m_circleTargetInterval / 10f);
+                        RandomMovementArroundPoint(dt, m_targetCreature.transform.position, m_circleTargetDistance,
+                            IsAlerted());
+                        m_aiStatus = "Attack pause";
+                        return;
                     }
+                }
 
-                    ItemData itemData = SelectBestAttack(human, dt);
-                    bool flag = itemData != null &&
-                                Time.time - itemData.m_lastAttackTime > itemData.m_shared.m_aiAttackInterval &&
-                                m_character.GetTimeSinceLastAttack() >= m_minAttackInterval && !IsTakingOff();
-                    // if ((m_circulateWhileCharging ? 1 : 0) != 0 && m_targetCreature && itemData != null && !flag &&
-                    //     !m_character.InAttack())
-                    // {
-                    //     m_aiStatus = "Move around target weapon ready:" + flag.ToString();
-                    //     if (itemData != null)
-                    //         m_aiStatus += " Weapon:" + itemData.m_shared.m_name;
-                    //     Vector3 point = m_targetCreature.transform.position;
-                    //     RandomMovementArroundPoint(dt, point, m_randomMoveRange, IsAlerted());
-                    // }
-                    // else 
-                    if (!m_targetCreature)
+                ItemData itemData = SelectBestAttack(human, dt);
+                bool flag = itemData != null &&
+                            Time.time - itemData.m_lastAttackTime > itemData.m_shared.m_aiAttackInterval &&
+                            m_character.GetTimeSinceLastAttack() >= m_minAttackInterval && !IsTakingOff();
+                // if ((m_circulateWhileCharging ? 1 : 0) != 0 && m_targetCreature && itemData != null && !flag &&
+                //     !m_character.InAttack())
+                // {
+                //     m_aiStatus = "Move around target weapon ready:" + flag.ToString();
+                //     if (itemData != null)
+                //         m_aiStatus += " Weapon:" + itemData.m_shared.m_name;
+                //     Vector3 point = m_targetCreature.transform.position;
+                //     RandomMovementArroundPoint(dt, point, m_randomMoveRange, IsAlerted());
+                // }
+                // else 
+                if (!m_targetCreature)
+                {
+                    if (m_follow)
                     {
-                        if (m_follow)
-                        {
-                            Follow(m_follow, dt);
-                            m_aiStatus = $"Follow {m_follow.GetPrefabName()}";
-                        }
-                        else
-                        {
-                            UpdateNormalBehavior(dt);
-                        }
-                    }
-                    else if (itemData.m_shared.m_aiTargetType == ItemDrop.ItemData.AiTarget.Enemy)
-                    {
-                        if (!m_targetCreature)
-                            return;
-                        if (canHearTarget | canSeeTarget)
-                        {
-                            m_beenAtLastPos = false;
-                            m_lastKnownTargetPos = m_targetCreature.transform.position;
-                            float num1 = Vector3.Distance(m_lastKnownTargetPos, transform.position) -
-                                         m_targetCreature.GetRadius();
-                            float num2 = m_alertRange * m_targetCreature.GetStealthFactor();
-                            if (canSeeTarget && num1 < num2)
-                                SetAlerted(true);
-                            int num3 = num1 < itemData.m_shared.m_aiAttackRange ? 1 : 0;
-                            if (num3 == 0 || !canSeeTarget || itemData.m_shared.m_aiAttackRangeMin < 0.0 ||
-                                !IsAlerted())
-                            {
-                                m_aiStatus = "Move closer";
-                                Vector3 velocity = m_targetCreature.GetVelocity();
-                                Vector3 vector3 = velocity * m_interceptTime;
-                                Vector3 lastKnownTargetPos = m_lastKnownTargetPos;
-                                if (num1 > vector3.magnitude / 4.0)
-                                    lastKnownTargetPos += velocity * m_interceptTime;
-                                MoveTo(dt, lastKnownTargetPos, 0.0f, IsAlerted());
-                                if (m_timeSinceAttacking > 15.0)
-                                    m_unableToAttackTargetTimer = 15f;
-                            }
-                            else
-                                StopMoving();
-
-                            if ((num3 & (canSeeTarget ? 1 : 0)) == 0 || !IsAlerted())
-                                return;
-                            m_aiStatus = "In attack range";
-                            LookAt(m_targetCreature.GetTopPoint());
-                            if (!flag || !IsLookingAt(m_lastKnownTargetPos,
-                                    itemData.m_shared.m_aiAttackMaxAngle))
-                                return;
-                            m_aiStatus = "Attacking creature";
-                            DoAttack(m_targetCreature, false);
-                        }
-                        else
-                        {
-                            m_aiStatus = "Searching for target";
-                            if (m_beenAtLastPos)
-                            {
-                                RandomMovement(dt, m_lastKnownTargetPos);
-                                if (m_timeSinceAttacking <= 15.0)
-                                    return;
-                                m_unableToAttackTargetTimer = 15f;
-                            }
-                            else
-                            {
-                                if (!MoveTo(dt, m_lastKnownTargetPos, 0.0f, IsAlerted()))
-                                    return;
-                                m_beenAtLastPos = true;
-                            }
-                        }
+                        Follow(m_follow, dt);
+                        m_aiStatus = $"Follow {m_follow.GetPrefabName()}";
                     }
                     else
                     {
-                        if (itemData.m_shared.m_aiTargetType != ItemDrop.ItemData.AiTarget.FriendHurt &&
-                            itemData.m_shared.m_aiTargetType != ItemDrop.ItemData.AiTarget.Friend)
-                            return;
-                        m_aiStatus = "Helping friend";
-                        Character target = itemData.m_shared.m_aiTargetType == ItemDrop.ItemData.AiTarget.FriendHurt
-                            ? HaveHurtFriendInRange(m_viewRange)
-                            : HaveFriendInRange(m_viewRange);
-                        if (target)
-                        {
-                            if (Vector3.Distance(target.transform.position, transform.position) <
-                                itemData.m_shared.m_aiAttackRange)
-                            {
-                                if (flag)
-                                {
-                                    StopMoving();
-                                    LookAt(target.transform.position);
-                                    DoAttack(target, true);
-                                }
-                                else
-                                    RandomMovement(dt, target.transform.position);
-                            }
-                            else
-                                MoveTo(dt, target.transform.position, 0.0f, IsAlerted());
-                        }
-                        else
-                            RandomMovement(dt, transform.position, true);
+                        if (UpdateFooding_falseNotNeed(human, dt) == false)
+                            UpdateNormalBehavior(dt);
                     }
                 }
+                else if (itemData.m_shared.m_aiTargetType == ItemDrop.ItemData.AiTarget.Enemy && IsAlerted())
+                {
+                    if (!m_targetCreature)
+                        return;
+                    if (canHearTarget | canSeeTarget)
+                    {
+                        m_beenAtLastPos = false;
+                        m_lastKnownTargetPos = m_targetCreature.transform.position;
+                        float num1 = Vector3.Distance(m_lastKnownTargetPos, transform.position) -
+                                     m_targetCreature.GetRadius();
+                        float num2 = m_alertRange * m_targetCreature.GetStealthFactor();
+                        if (canSeeTarget && num1 < num2)
+                            SetAlerted(true);
+                        int num3 = num1 < itemData.m_shared.m_aiAttackRange ? 1 : 0;
+                        if (num3 == 0 || !canSeeTarget || itemData.m_shared.m_aiAttackRangeMin < 0.0 ||
+                            !IsAlerted())
+                        {
+                            m_aiStatus = "Move closer";
+                            Vector3 velocity = m_targetCreature.GetVelocity();
+                            Vector3 vector3 = velocity * m_interceptTime;
+                            Vector3 lastKnownTargetPos = m_lastKnownTargetPos;
+                            if (num1 > vector3.magnitude / 4.0)
+                                lastKnownTargetPos += velocity * m_interceptTime;
+                            MoveTo(dt, lastKnownTargetPos, 0.0f, IsAlerted());
+                            if (m_timeSinceAttacking > 15.0)
+                                m_unableToAttackTargetTimer = 15f;
+                        }
+                        else
+                            StopMoving();
+
+                        if ((num3 & (canSeeTarget ? 1 : 0)) == 0 || !IsAlerted())
+                            return;
+                        m_aiStatus = "In attack range";
+                        LookAt(m_targetCreature.GetTopPoint());
+                        if (!flag || !IsLookingAt(m_lastKnownTargetPos,
+                                itemData.m_shared.m_aiAttackMaxAngle))
+                            return;
+                        m_aiStatus = "Attacking creature";
+                        DoAttack(m_targetCreature, false);
+                    }
+                    else
+                    {
+                        m_aiStatus = "Searching for target";
+                        if (m_beenAtLastPos)
+                        {
+                            RandomMovement(dt, m_lastKnownTargetPos);
+                            if (m_timeSinceAttacking <= 15.0)
+                                return;
+                            m_unableToAttackTargetTimer = 15f;
+                        }
+                        else
+                        {
+                            if (!MoveTo(dt, m_lastKnownTargetPos, 0.0f, IsAlerted()))
+                                return;
+                            m_beenAtLastPos = true;
+                        }
+                    }
+                }
+                // else
+                // {
+                //     if (itemData.m_shared.m_aiTargetType != ItemDrop.ItemData.AiTarget.FriendHurt &&
+                //         itemData.m_shared.m_aiTargetType != ItemDrop.ItemData.AiTarget.Friend && IsAlerted())
+                //         return;
+                //     m_aiStatus = "Helping friend";
+                //     Character target = itemData.m_shared.m_aiTargetType == ItemDrop.ItemData.AiTarget.FriendHurt
+                //         ? HaveHurtFriendInRange(m_viewRange)
+                //         : HaveFriendInRange(m_viewRange);
+                //     if (target)
+                //     {
+                //         if (Vector3.Distance(target.transform.position, transform.position) <
+                //             itemData.m_shared.m_aiAttackRange)
+                //         {
+                //             if (flag)
+                //             {
+                //                 StopMoving();
+                //                 LookAt(target.transform.position);
+                //                 DoAttack(target, true);
+                //             }
+                //             else
+                //                 RandomMovement(dt, target.transform.position);
+                //         }
+                //         else
+                //             MoveTo(dt, target.transform.position, 0.0f, IsAlerted());
+                //     }
+                //     else
+                //         RandomMovement(dt, transform.position, true);
+                //}
+                //}
             }
+        }
+    }
+
+    private void PickupLootFromDeadEnemy(float dt)
+    {
+        if (MoveTo(dt, lootPos, 3, false))
+        {
+            if (IsLookingAt(lootPos, 20f))
+            {
+                Collider[] colliderArray =
+                    Physics.OverlapSphere(transform.position, 8, MonsterAI.m_itemMask);
+                List<ItemDrop> drops = new();
+                float num1 = 999999f;
+                foreach (Collider collider in colliderArray)
+                {
+                    if (collider.attachedRigidbody)
+                    {
+                        ItemDrop component = collider.attachedRigidbody.GetComponent<ItemDrop>();
+                        if (component && component.GetComponent<ZNetView>().IsValid())
+                        {
+                            drops.Add(component);
+                        }
+                    }
+                }
+
+                var drop = Helper.Nearest(drops, transform.position);
+                if (drop)
+                {
+                    human.Pickup(drop.gameObject);
+                    drops.Remove(drop);
+                }
+                else
+                {
+                    m_aiStatus = "";
+                    //TODO: Put the loot from the enemy in the chest
+                }
+            }
+        }
+        else
+        {
+            m_aiStatus = $"Can't reach loot";
         }
     }
 
     private void UpdateNormalBehavior(float dt)
     {
+        if (!house || !house.town) return;
         if (EnvMan.instance.IsNight())
         {
             m_aiStatus = $"Going to sleep";
             var bedPos = house.GetBedPos();
             var hasBed = house.HasBed();
-            if (MoveTo(dt, bedPos, house.town.GetRadius() * 2, false))
+            if (MoveTo(dt, bedPos, 3, false))
             {
                 if (hasBed)
                 {
@@ -329,10 +355,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
                     LookAt(bedPos);
                     if (IsLookingAt(bedPos, 20f))
                     {
-                        AttachStart(bed.m_spawnPoint, bed.gameObject, true, true, "attach_bed",
-                            new Vector3(0.0f, 0.9f, 0.0f));
-                        m_aiStatus = $"Speeping";
-                        m_animator.SetTrigger("consume");
+                        Sleep();
                     }
                 }
                 else
@@ -340,36 +363,123 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
                     m_aiStatus = $"Need a bed";
                 }
             }
+            else
+            {
+                if (MoveTo(dt, house.transform.position, 3, false))
+                {
+                    m_aiStatus = "Can't reach bad, going to house";
+                }
+                else
+                {
+                    m_aiStatus = "Can't reach bed";
+                }
+            }
         }
         else
         {
-            if (Random.value < 0.15f || profile.m_profession == NPC_Profession.None)
+            if (inProfessionBehavior && HaveProfession())
             {
-                m_aiStatus = $"Random movement";
-                IdleMovement(dt);
+                UpdateProfessionBehavior(dt);
+                return;
             }
             else
             {
-                if (profile.m_profession != NPC_Profession.None)
+                if (m_professionBehaviorTimer == null && HaveProfession())
                 {
-                    switch (profile.m_profession)
+                    m_professionBehaviorTimer = new System.Timers.Timer(m_professionBehaviorInterval);
+                    m_professionBehaviorTimer.Elapsed += (sendered, args) =>
                     {
-                        case NPC_Profession.Crafter:
-                            if (inCrafting) break;
-                            if (profile.itemsToCraft == null || profile.itemsToCraft.Count == 0) break;
-                            var randomItemToCraft =
-                                profile.itemsToCraft.Random();
-                            m_aiStatus = $"Crafting {randomItemToCraft.prefabName}";
-                            GoCraftItem(dt, randomItemToCraft);
-                            break;
-                    }
+                        inProfessionBehavior = true;
+                        m_professionBehaviorTimer.Stop();
+                        m_professionBehaviorTimer = null;
+                    };
+                    m_professionBehaviorTimer.Start();
+                    m_professionBehaviorTimer.Enabled = true;
+                }
+
+                m_aiStatus = $"Random movement";
+                IdleMovement(dt);
+            }
+        }
+    }
+
+    private bool HaveProfession() => profile.m_profession != NPC_Profession.None;
+
+    private void Sleep()
+    {
+        if (IsSleeping()) return;
+        var bed = house.GetBed();
+        AttachStart(bed.m_spawnPoint, bed.gameObject, true, true, "attach_bed",
+            new Vector3(0.0f, 0.4f, 0.0f), attachOffset: new Vector3(0.0f, 1, 0));
+        m_aiStatus = $"Speeping";
+        m_animator.SetBool(MonsterAI.s_sleeping, true);
+        m_nview.GetZDO().Set(ZDOVars.s_sleeping, true);
+        m_wakeupEffects.Create(transform.position, transform.rotation);
+        m_sleeping = true;
+        house.CloseAllDoors();
+    }
+
+    private void UpdateProfessionBehavior(float dt)
+    {
+        if (profile.m_profession != NPC_Profession.None)
+        {
+            inProfessionBehavior = true;
+            switch (profile.m_profession)
+            {
+                case NPC_Profession.Crafter:
+                    UpdateCrafter(dt);
+                    break;
+                case NPC_Profession.Builder:
+                    UpdateBuilder(dt);
+                    break;
+            }
+        }
+    }
+
+    private void UpdateBuilder(float dt)
+    {
+        if (!house || !house.town) return;
+        if (!targetBuilding) targetBuilding = house.town.FindWornBuilding();
+        if (!targetBuilding)
+        {
+            inProfessionBehavior = false;
+            m_aiStatus = "All buildings are okay";
+            Debug($"{profile.name} {m_aiStatus}");
+            return;
+        }
+        else
+        {
+            var buildingPos = targetBuilding.transform.position;
+            if (MoveTo(dt, buildingPos, targetBuilding.m_piece.m_blockRadius + 2, false))
+            {
+                LookAt(buildingPos);
+                if (IsLookingAt(buildingPos, 20f))
+                {
+                    var buildingName = targetBuilding.GetPrefabName();
+                    m_aiStatus = $"Repairs {buildingName}";
+                    human.m_zanim.SetTrigger("swing_hammer");
+                    targetBuilding.m_piece.m_placeEffect.Create(buildingPos,
+                        targetBuilding.transform.rotation);
+                    human.UseStamina(5);
+                    Debug($"{profile.name} repared {buildingName}");
+                    targetBuilding = null;
                 }
             }
         }
     }
 
+    private void UpdateCrafter(float dt)
+    {
+        if (inCrafting) return;
+        if (profile.itemsToCraft == null || profile.itemsToCraft.Count == 0) return;
+        var randomItemToCraft =
+            profile.itemsToCraft.Random();
+        GoCraftItem(dt, randomItemToCraft);
+    }
+
     private void GoCraftItem(float dt, CrafterItem crafterItem)
     {
+        if (!house || crafterItem == null) return;
         if (!house.HaveEmptySlot())
         {
             m_aiStatus = $"Don't have free space for crafting.";
@@ -377,12 +487,20 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         }
 
         var recipe = ObjectDB.instance.GetRecipe(crafterItem.prefab.m_itemData);
-        m_aiStatus = $"Going to craft {recipe.name}";
+        if (!recipe)
+        {
+            DebugError($"Can't find recipe {crafterItem.prefabName}");
+            return;
+        }
+
+        m_aiStatus += $"\nGoing to craft {recipe.name}";
         CraftingStation craftingStation = null;
         if (HaveRequirementsForRecipe(recipe, out craftingStation))
         {
+            m_aiStatus += $"\nHave requirements for {recipe.name}";
+
             var stationPos = craftingStation.transform.position;
-            if (MoveTo(dt, stationPos, house.town.GetRadius() * 2, false))
+            if (MoveTo(dt, stationPos, craftingStation.m_useDistance * 0.8f, false))
             {
                 LookAt(stationPos);
                 if (IsLookingAt(stationPos, 20f))
@@ -405,18 +523,28 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     private IEnumerator CraftItem(float dt, CraftingStation craftingStation, CrafterItem crafterItem, Recipe recipe)
     {
-        m_aiStatus = $"Crafting {recipe.name}...";
+        m_aiStatus = $"\nCrafting {recipe.name}...";
         foreach (var resource in recipe.m_resources)
         {
             var resourceName = resource.m_resItem.m_itemData.m_shared.m_name;
             yield return new WaitForSeconds(2);
-            m_aiStatus = $"Crafting {recipe.name}... " + $" {resourceName}";
+            m_aiStatus += $"\nSpends {resourceName}...";
             house.RemoveItemFromInventory(resourceName);
         }
 
-        m_aiStatus = $"Finishing crafting {recipe.name}...";
+        m_aiStatus += $"\nFinishing crafting {recipe.name}...";
         yield return new WaitForSeconds(2);
-        house.AddItem(recipe.m_item);
+        var itemDrop = Instantiate(recipe.m_item, craftingStation.transform.position, Quaternion.identity);
+        itemDrop.m_itemData.m_durability = itemDrop.m_itemData.GetMaxDurability();
+        if (house.AddItem(itemDrop))
+        {
+            itemDrop.m_nview.Destroy();
+            //TODO: emote
+        }
+
+        inCrafting = false;
+        human.m_zanim.SetInt("crafting", 0);
+        inProfessionBehavior = false;
     }
 
     private bool HaveRequirementsForRecipe(Recipe recipe, out CraftingStation station)
@@ -445,13 +573,14 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     }
 
     private void AttachStart(Transform attachPoint, GameObject colliderRoot, bool hideWeapons, bool isBed,
-        string attachAnimation, Vector3 detachOffset, Transform cameraPos = null)
+        string attachAnimation, Vector3 detachOffset, Vector3 attachOffset, Transform cameraPos = null)
     {
         if (m_attached)
             return;
         m_attached = true;
         m_attachPoint = attachPoint;
         m_detachOffset = detachOffset;
+        m_attachOffset = attachOffset;
         m_attachAnimation = attachAnimation;
         m_attachPointCamera = cameraPos;
         human.m_zanim.SetBool(attachAnimation, true);
@@ -492,6 +621,8 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             if (canSeeTarget | canHearTarget)
                 m_timeSinceSensedTargetCreature = 0;
             SetTargetInfo(m_targetCreature.GetZDOID());
+            if (!m_targetCreature.m_onDeath.GetInvocationList().Contains(OnTargetDeath))
+                m_targetCreature.m_onDeath += OnTargetDeath;
         }
         else SetTargetInfo(ZDOID.None);
 
@@ -511,6 +642,12 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         m_updateTargetTimer = 5f;
     }
 
+    private void OnTargetDeath()
+    {
+        Debug($"{profile.name} {m_aiStatus}");
+        m_aiStatus = "Target dead, go for loot";
+    }
+
     public bool DoAttack(Character target, bool isFriend)
     {
         ItemData currentWeapon = human.GetCurrentWeapon();
@@ -521,9 +658,9 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         return num != 0;
     }
 
-    public bool UpdateConsumeItem(Humanoid humanoid, float dt)
+    public bool UpdateFooding_falseNotNeed(Humanoid humanoid, float dt)
     {
-        m_aiStatus = "Looking for food";
+        if (!IsHungry()) return false;
         m_consumeSearchTimer += dt;
         if (m_consumeSearchTimer > m_consumeSearchInterval)
         {
@@ -532,25 +669,42 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             FindFood();
         }
 
-        if (!foodHouse) return false;
-        m_aiStatus = "Going to food house";
-        if (MoveTo(dt, m_containerToGrab.transform.position, m_consumeRange, false))
+        if (!foodHouse || m_currentConsumeItem == null || !m_containerToGrab) return false;
+
+        m_aiStatus = "Looking for food";
+        if (MoveTo(dt, m_containerToGrab.transform.position, 2, m_aiStatus == "Can't reach food house"))
         {
             LookAt(m_containerToGrab.transform.position);
-            if (IsLookingAt(m_containerToGrab.transform.position, 20f) &&
-                m_containerToGrab.GetInventory().RemoveOneItem(m_currentConsumeItem))
-            {
-                m_onConsumedItem?.Invoke(m_currentConsumeItem);
-                humanoid.m_consumeItemEffects.Create(transform.position, Quaternion.identity);
-                m_animator.SetTrigger("consume");
-                Debug($"Ate the {m_currentConsumeItem.m_shared.m_name.Localize()}");
-                m_currentConsumeItem = null;
-            }
+            //if ( IsLookingAt(m_containerToGrab.transform.position, 20f) && )
+            //{
+            m_onConsumedItem?.Invoke(m_currentConsumeItem);
+            humanoid.m_consumeItemEffects?.Create(transform.position, Quaternion.identity);
+            m_animator.SetTrigger("eat");
+            Debug($"{profile.name} ate the {m_currentConsumeItem.m_shared.m_name.Localize()}");
+            m_currentConsumeItem = null;
+            foodHouse = null;
+            var inventory = m_containerToGrab.GetInventory();
+            inventory.RemoveItem(m_currentConsumeItem.m_shared.m_name, 1);
+            //human.ConsumeItem(inventory, inventory.GetItem(m_currentConsumeItem.m_shared.m_name));
+            return true;
+            //}
+        }
+        else
+        {
+            foodHouse.OpenAllDoors();
+            m_aiStatus = "Can't reach food house";
+            return false;
         }
 
         return false;
 
         //false means don't need to eat.
+    }
+
+    public void OnConsumedItem(ItemData item)
+    {
+        m_sootheEffect.Create(human.GetCenterPoint(), Quaternion.identity);
+        ResetHungryTimer();
     }
 
     public void UpdateAttach()
@@ -559,7 +713,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             return;
         if (m_attachPoint != null)
         {
-            transform.position = m_attachPoint.position;
+            transform.position = m_attachPoint.position + m_attachOffset;
             transform.rotation = m_attachPoint.rotation;
             Rigidbody componentInParent = m_attachPoint.GetComponentInParent<Rigidbody>();
             m_body.useGravity = false;
@@ -573,7 +727,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     public void AttachStop()
     {
-        if (m_sleeping || !m_attached) return;
+        if (!m_attached) return;
         if (m_attachPoint != null) transform.position = m_attachPoint.TransformPoint(m_detachOffset);
         if (m_attachColliders != null)
         {
@@ -608,20 +762,26 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     private void FindFood()
     {
-        foodHouse = house.town.FindFoodHouse();
-        if (!foodHouse)
+        var result = new List<NPC_House>();
+        result = house.town.FindFoodHouses();
+        if (result == null || result.Count == 0) return;
+
+        foreach (var npcHouse in result)
         {
-            Debug($"Can't find food house");
+            foodHouse = npcHouse;
+            var inventory = foodHouse.GetHouseInventory();
+            List<ItemData> food = foodHouse.GetItemsByType(ItemType.Consumable, out Container container);
+            if (food == null || food.Count == 0)
+            {
+                m_currentConsumeItem = null;
+                m_containerToGrab = null;
+                continue;
+            }
+
+            m_currentConsumeItem = food[0];
+            m_containerToGrab = container;
             return;
         }
-
-        Debug("Food house found");
-
-        var inventory = foodHouse.GetHouseInventory();
-        List<ItemData> food = foodHouse.GetItemsByType(ItemType.Consumable, out Container container);
-        if (food == null || food.Count == 0) return;
-        m_currentConsumeItem = food[0];
-        m_containerToGrab = container;
     }
 
     public void UpdateSleep(float dt)
@@ -633,16 +793,18 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             return;
         }
 
-        if (m_wakeupRange > 0)
-        {
-            var closestEnemy = FindClosestEnemy(m_character, transform.position, m_wakeupRange);
-            if (closestEnemy && !closestEnemy.InGhostMode() && !closestEnemy.IsDebugFlying())
-            {
-                Wakeup();
-                return;
-            }
-        }
+        // if (m_wakeupRange > 0)
+        // {
+        //     var closestEnemy = FindClosestEnemy(m_character, transform.position, m_wakeupRange);
+        //     if (closestEnemy && !closestEnemy.InGhostMode() && !closestEnemy.IsDebugFlying())
+        //     {
+        //         Wakeup();
+        //         return;
+        //     }
+        // }
     }
+
+    public new bool IsSleeping() => m_nview.IsValid() && m_nview.GetZDO().GetBool(ZDOVars.s_sleeping, m_sleeping);
 
     public ItemData SelectBestAttack(Humanoid humanoid, float dt)
     {
@@ -700,6 +862,8 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         m_animator.SetBool(MonsterAI.s_sleeping, false);
         m_nview.GetZDO().Set(ZDOVars.s_sleeping, false);
         m_wakeupEffects.Create(transform.position, transform.rotation);
+        m_sleeping = false;
+        if (house) house.OpenAllDoors();
         AttachStop();
     }
 
@@ -718,6 +882,15 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         // m_nview.GetZDO().Set("NPC_ID",
         //     (profile.name + Random.Range(int.MinValue, Int32.MaxValue).ToString()).GetStableHashCode());
         SaveProfile(profile);
+        switch (profile.m_profession)
+        {
+            case NPC_Profession.Builder:
+                if (!human.GetInventory().ContainsItemByName("$item_hammer"))
+                    human.Pickup(ObjectDB.instance.GetItemPrefab("Hammer"));
+                break;
+        }
+
+        house.OpenAllDoors();
     }
 
     public void SetHouse(NPC_House npcHouse)
@@ -728,6 +901,8 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         m_patrol = false;
         m_patrolPoint = house.town.transform.position;
         SetPatrolPoint(transform.position);
+        npcHouse.RegisterNPC(this);
+        npcHouse.OpenAllDoors();
     }
 
     public NPC_Profile GetSavedProfile()
@@ -744,14 +919,17 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     {
         var sb = new StringBuilder();
         sb.AppendLine($"{profile.name}:");
-        sb.AppendLine($"{(profile.m_profession == NPC_Profession.None ? "" : "Profession:" + profile.m_profession)}");
-        sb.AppendLine($"$KEY_USE to talk");
+        sb.AppendLine($"{(profile.m_profession == NPC_Profession.None ? "" : "Profession: " + profile.m_profession)}");
         sb.AppendLine($"Ai: {m_aiStatus}");
+        sb.AppendLine($"Hungry: {IsHungry()}");
+        sb.AppendLine($"Sleeping: {IsSleeping()}");
+        sb.AppendLine($"{Const.UseKey} to talk");
 
         return sb.ToString().Localize();
     }
 
-    public string GetHoverName() => profile.name;
+    public string GetHoverName() =>
+        $"{profile.name}{(profile.m_profession == NPC_Profession.None ? "" : $" ({profile.m_profession})")}";
 
     public bool Interact(Humanoid user, bool hold, bool alt)
     {

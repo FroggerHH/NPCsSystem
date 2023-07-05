@@ -10,7 +10,6 @@ using LocationManager;
 using CreatureManager;
 using ServerSync;
 using UnityEngine;
-using NPCsSystem;
 using PieceManager;
 using static ItemManager.PrefabManager;
 using PrefabManager = ItemManager.PrefabManager;
@@ -175,5 +174,50 @@ internal class Plugin : BaseUnityPlugin
         };
 
         PrefabManager.RegisterPrefab(bundle, "TestNullTown");
+
+        TownDB.Initialize(bundle);
+        var Bill = TownDB.GetProfile("Bill");
+        Bill.AddCrafterItem("ArmorBronzeChest");
+        Bill.AddCrafterItem("ArmorBronzeLegs");
+        Bill.AddCrafterItem("ArrowBronze");
+        Bill.AddCrafterItem("AtgeirBronze");
+        Bill.AddCrafterItem("AxeBronze");
+        Bill.AddCrafterItem("BronzeNails");
+        Bill.AddCrafterItem("HelmetBronze");
+        Bill.AddCrafterItem("MaceBronze");
+        Bill.AddCrafterItem("PickaxeBronze");
+        Bill.AddCrafterItem("ShieldBronzeBuckler");
+        Bill.AddCrafterItem("SpearBronze");
+        Bill.AddCrafterItem("SwordBronze");
+
+
+        var Brian = TownDB.GetProfile("Brian");
+        Brian.AddCrafterItem("ArmorIronChest");
+        Brian.AddCrafterItem("ArmorIronLegs");
+        Brian.AddCrafterItem("ArrowIron");
+        Brian.AddCrafterItem("AtgeirIron");
+        Brian.AddCrafterItem("AxeIron");
+        Brian.AddCrafterItem("BoltIron");
+        Brian.AddCrafterItem("HelmetIron");
+        Brian.AddCrafterItem("IronNails");
+        Brian.AddCrafterItem("PickaxeIron");
+        Brian.AddCrafterItem("ShieldIronBuckler");
+        Brian.AddCrafterItem("ShieldIronSquare");
+        Brian.AddCrafterItem("ShieldIronTower");
+        Brian.AddCrafterItem("SwordIron");
+
+        var Carl = TownDB.GetProfile("Carl");
+        Carl.AddCrafterItem("ArrowSilver");
+        Carl.AddCrafterItem("MaceSilver");
+        Carl.AddCrafterItem("ShieldSilver");
+        Carl.AddCrafterItem("SwordSilver");
+
+        var Charles = TownDB.GetProfile("Charles");
+        Charles.AddCrafterItem("ArmorLeatherChest");
+        Charles.AddCrafterItem("ArmorLeatherLegs");
+        Charles.AddCrafterItem("ArmorTrollLeatherChest");
+        Charles.AddCrafterItem("ArmorTrollLeatherLegs");
+        Charles.AddCrafterItem("HelmetLeather");
+        Charles.AddCrafterItem("HelmetTrollLeather");
     }
 }

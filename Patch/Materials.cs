@@ -33,6 +33,7 @@ public class Materials
             FixContainer(asset);
             FixFireplace(asset);
             FixTerrainMod(asset);
+            FixNPC(asset);
         }
     }
 
@@ -88,6 +89,17 @@ public class Materials
             FixEffect(character.m_backstabHitEffects, asset.name);
             FixEffect(character.m_critHitEffects, asset.name);
             FixEffect(character.m_flyingContinuousEffect, asset.name);
+        }
+    }
+
+    private static void FixNPC(GameObject asset)
+    {
+        var brain = asset.GetComponent<NPC_Brain>();
+        if (brain != null)
+        {
+            FixEffect(brain.m_sootheEffect, asset.name);
+            FixEffect(brain.m_wakeupEffects, asset.name);
+            FixEffect(brain.m_alertedEffects, asset.name);
         }
     }
 

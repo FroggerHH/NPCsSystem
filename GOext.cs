@@ -8,4 +8,9 @@ public static class GOext
     {
         return Utils.GetPrefabName(gameObject);
     }
+    
+    public static string GetPrefabName<T>(this T gameObject) where T : MonoBehaviour
+    {
+        return Utils.GetPrefabName((gameObject as MonoBehaviour).gameObject);
+    }
 }

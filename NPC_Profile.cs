@@ -5,7 +5,7 @@ using static NPCsSystem.CrafterItem;
 
 namespace NPCsSystem
 {
-    [CreateAssetMenu(fileName = "NPC_Profile", menuName = "NPC_Profile", order = 0)]
+    [CreateAssetMenu(fileName = "NPC_Profile", menuName = "NPC_Profile")]
     public class NPC_Profile : ScriptableObject
     {
         [Header("MPC settings")] public GameObject m_prefab;
@@ -17,14 +17,12 @@ namespace NPCsSystem
         public NPC_Profession m_profession;
         public NPC_Gender m_gender;
 
-        [Header("Profession settings:")] [Space] [Header("Crafter")]
         public List<CrafterItem> itemsToCraft = new();
         public int startinglevel = 1;
+        public List<TradeItem.BuyItem> itemsToBuy = new();
+        public List<TradeItem.SellItem> itemsToSell = new();
 
-        [Header("Traider")] public List<BuyItem> itemsToBuy = new();
-        public List<CrafterItem.SellItem> itemsToSell = new();
-
-        [Header("Warrior")] public List<string> startWeapons = new();
+        [Header("Warrior")] [SerializeField] public string[] startWeapons;
 
 
         public override string ToString()
@@ -34,5 +32,23 @@ namespace NPCsSystem
         }
 
         public bool IsWarrior() => m_profession == NPC_Profession.Warrior;
+        public bool IsCrafter() => m_profession == NPC_Profession.Crafter;
+
+
+        public void AddCrafterItem(CrafterItem item)
+        {
+            itemsToCraft.Add(item);
+        }
+
+        public void AddCrafterItem(string item)
+        {
+            if (m_profession != NPC_Profession.Crafter)
+            {
+                Plugin.DebugError($"{name} is not a Crafter! He cant craft items.");
+                return;
+            }
+
+            itemsToCraft.Add(new(item));
+        }
     }
 }
