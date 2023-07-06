@@ -16,7 +16,13 @@ public static class TownDB
     public static void Initialize(AssetBundle bundle)
     {
         Plugin.Debug("Initializing TownDB");
-        var WoodNPSHouse = PrefabManager.RegisterPrefab(bundle, "WoodNPSHouse").GetComponentInChildren<NPC_House>();
+        var NPSHouseCrafter =
+            PrefabManager.RegisterPrefab(bundle, "NPSHouseCrafter");
+
+
+        var NPSHouseHotel = PrefabManager.RegisterPrefab(bundle, "NPSHouseHotel");
+        var NPSHouseWarehouse = PrefabManager.RegisterPrefab(bundle, "NPSHouseWarehouse")
+            .GetComponentInChildren<NPC_House>();
         var TestTown = PrefabManager.RegisterPrefab(bundle, "TestTown").GetComponentInChildren<NPC_Town>();
         var profiles = bundle.LoadAllAssets<NPC_Profile>().ToList();
         foreach (var profile in profiles)

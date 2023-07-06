@@ -72,62 +72,65 @@ namespace NPCsSystem
             zdo.Set("NPCsSpawned", true);
 
             Debug("Spawning NPCs");
-            for (var i = 0; i < npcs.Count; i++)
+            foreach (var profile in npcs)
             {
-                if (i >= houses.Count) continue;
-                var profile = npcs[i];
                 NPC_Brain npc = null;
-                var house = FindHouse(profile);
-                if (!house)
+                var sleepHouse = FindSleepHouse(profile);
+                var workHouse = FindWorkHouse(profile);
+                if (!sleepHouse)
                 {
-                    DebugError($"Can't find house for {profile}");
+                    DebugWarning($"Can't find sleepHouse for {profile}");
                     continue;
                 }
 
-                npc = Instantiate(profile.m_prefab, house.GetBedPos(), Quaternion.identity).GetComponent<NPC_Brain>();
-                npc.SetHouse(house);
+                if (!workHouse && profile.HasProfession())
+                {
+                    DebugWarning($"Can't find workHouse for {profile}");
+                    continue;
+                }
+
+                npc = Instantiate(profile.m_prefab, sleepHouse.GetBedPos(profile.name), Quaternion.identity)
+                    .GetComponent<NPC_Brain>();
+                npc.SetHouse(sleepHouse, workHouse);
                 npc.Init(profile);
-                house.RegisterNPC(npc);
             }
 
             Debug("NPCs spawned");
         }
 
-        private NPC_House FindHouse(NPC_Profile profile)
+        internal NPC_House FindWorkHouse(NPC_Profile profile)
         {
             List<NPC_House> returnHouses = new();
 
             foreach (var house in houses)
             {
                 var ht = house.houseType;
-                if (!house.isAvailable || ht == None) continue;
-                // switch (house.houseType)
-                // {
-                //     case None:
-                //         break;
-                //     case Housing:
-                //         if (profile.m_profession == NPC_Profession.None) return house;
-                //         break;
-                //     case HouseType.ProfessionHouse:
-                //         if (profile.m_profession == house.professionForProfessionHouse) return house;
-                //         break;
-                // }
+                if (!house.IsAvailable() || ht == None) continue;
                 if (house.IsProfessionHouse())
                 {
                     if (profile.m_profession == house.professionForProfessionHouse) returnHouses.Add(house);
                 }
+            }
 
-                if (house.IsHousingHouse() && profile.m_profession == NPC_Profession.None)
+            return returnHouses.FirstOrDefault();
+        }
+
+        private NPC_House FindSleepHouse(NPC_Profile profile)
+        {
+            List<NPC_House> returnHouses = new();
+
+            foreach (var house in houses)
+            {
+                var ht = house.houseType;
+                if (!house.IsAvailable() || ht == None) continue;
+
+                if (house.IsHousingHouse())
                 {
                     returnHouses.Add(house);
                 }
             }
 
-            // var arr = returnHouses.ToArray();
-            // Array.Sort(arr, DistanceComparison);
-            // returnHouses = arr.ToList();
-            // if (returnHouses.Count == 0) return null;
-            return returnHouses.FirstOrDefault();
+            return returnHouses.Find(x => x.IsAvailable());
         }
 
         internal List<NPC_House> FindFoodHouses()
@@ -189,7 +192,7 @@ namespace NPCsSystem
         public List<WearNTear> FindAllWornBuilding()
         {
             var wearNTears = new List<WearNTear>();
-            var buildings = FindAllBuilding();
+            var buildings = FindAllBuildings();
             foreach (var wearNTear in buildings)
             {
                 if (wearNTear.GetHealthPercentage() < 0.8f)
@@ -201,11 +204,26 @@ namespace NPCsSystem
             return wearNTears;
         }
 
-        public List<WearNTear> FindAllBuilding()
+        public List<WearNTear> FindAllBuildings()
         {
             var buildings = new List<Piece>();
             var wearNTears = new List<WearNTear>();
             Piece.GetAllPiecesInRadius(transform.position, GetRadius(), buildings);
+            foreach (var piece in buildings)
+            {
+                var wearNTear = piece.GetComponent<WearNTear>();
+                if (!wearNTear) continue;
+                wearNTears.Add(wearNTear);
+            }
+
+            return wearNTears;
+        }
+
+        public List<WearNTear> FindAllBuildings(NPC_House house)
+        {
+            var buildings = new List<Piece>();
+            var wearNTears = new List<WearNTear>();
+            Piece.GetAllPiecesInRadius(house.transform.position, house.GetRadius(), buildings);
             foreach (var piece in buildings)
             {
                 var wearNTear = piece.GetComponent<WearNTear>();

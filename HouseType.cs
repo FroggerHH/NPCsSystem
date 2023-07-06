@@ -7,11 +7,13 @@ namespace NPCsSystem
         None,
         Housing,
         ProfessionHouse,
-        Food,
+        Warehouse,
         Other,
         HousingAndProfessionHouse,
-        HousingAndFood,
-        FoodAndProfessionHouse,
+        HousingAndWarehouse,
+        WarehouseAndProfessionHouse,
+        Entertainment,
+        EntertainmentAndProfessionHouse,
         All
     }
 }

@@ -21,7 +21,9 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 {
     internal static HashSet<NPC_Brain> allNPCs = new HashSet<NPC_Brain>();
     internal NPC_Profile profile;
-    internal NPC_House house;
+    internal NPC_House sleepHouse;
+    internal NPC_House workHouse;
+    internal NPC_Town town;
     internal Humanoid human;
 
     public NPC_Profile defaultProfile;
@@ -30,7 +32,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     public float m_interceptTime;
     private float m_pauseTimer;
     private System.Timers.Timer m_professionBehaviorTimer;
-    public float m_professionBehaviorInterval = 150;
+    public float m_professionBehaviorInterval = 100000;
     public float m_updateTargetTimer;
     public float m_interceptTimeMax;
     public float m_interceptTimeMin;
@@ -61,7 +63,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     private ItemData m_currentConsumeItem;
     public float m_consumeSearchTimer;
     private Action<ItemData> m_onConsumedItem;
-    public float m_eatDuration = 30f;
+    public float m_eatDuration = 1000f;
     private Container m_containerToGrab;
     public EffectList m_sootheEffect = new EffectList();
 
@@ -74,7 +76,6 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     private Transform m_attachPointCamera;
     private Collider[] m_attachColliders;
     public Text ai_statusText;
-    private bool inCrafting = false;
     private bool inProfessionBehavior = false;
     private GameObject hammerMark;
     private WearNTear targetBuilding;
@@ -83,6 +84,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     public override void Awake()
     {
         base.Awake();
+        human = m_character as Humanoid;
         m_despawnInDay = false;
         m_eventCreature = false;
         m_animator.SetBool(MonsterAI.s_sleeping, IsSleeping());
@@ -103,6 +105,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         ai_statusText = Utils.FindChild(transform, "Ai status").GetComponent<Text>();
         hammerMark = Utils.FindChild(transform, "HammerMark").gameObject;
         //m_pathAgentType = 0;
+        hammerMark.SetActive(false);
     }
 
     public void UpdateAiStatus()
@@ -113,7 +116,6 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     public void Start()
     {
         if (!m_nview || !m_nview.IsValid() || !m_nview.IsOwner()) return;
-        human = m_character as Humanoid;
         if (!human)
         {
             DebugError($"NPC {profile.name} is not a Humanoid");
@@ -129,7 +131,6 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     public new void UpdateAI(float dt)
     {
-        hammerMark.SetActive(inProfessionBehavior);
         if (!m_nview.IsOwner()) return;
         if (IsSleeping()) UpdateSleep(dt);
         else
@@ -202,7 +203,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
                     }
                     else
                     {
-                        if (UpdateFooding_falseNotNeed(human, dt) == false)
+                        if (UpdateFooding_falseNotNeed(dt) == false)
                             UpdateNormalBehavior(dt);
                     }
                 }
@@ -300,37 +301,44 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     private void PickupLootFromDeadEnemy(float dt)
     {
-        if (MoveTo(dt, lootPos, 3, false))
+        if (FindPath(lootPos))
         {
-            if (IsLookingAt(lootPos, 20f))
+            if (MoveTo(dt, lootPos, 3, false))
             {
-                Collider[] colliderArray =
-                    Physics.OverlapSphere(transform.position, 8, MonsterAI.m_itemMask);
-                List<ItemDrop> drops = new();
-                float num1 = 999999f;
-                foreach (Collider collider in colliderArray)
+                if (IsLookingAt(lootPos, 20f))
                 {
-                    if (collider.attachedRigidbody)
+                    Collider[] colliderArray =
+                        Physics.OverlapSphere(transform.position, 8, MonsterAI.m_itemMask);
+                    List<ItemDrop> drops = new();
+                    float num1 = 999999f;
+                    foreach (Collider collider in colliderArray)
                     {
-                        ItemDrop component = collider.attachedRigidbody.GetComponent<ItemDrop>();
-                        if (component && component.GetComponent<ZNetView>().IsValid())
+                        if (collider.attachedRigidbody)
                         {
-                            drops.Add(component);
+                            ItemDrop component = collider.attachedRigidbody.GetComponent<ItemDrop>();
+                            if (component && component.GetComponent<ZNetView>().IsValid())
+                            {
+                                drops.Add(component);
+                            }
                         }
                     }
-                }
 
-                var drop = Helper.Nearest(drops, transform.position);
-                if (drop)
-                {
-                    human.Pickup(drop.gameObject);
-                    drops.Remove(drop);
+                    var drop = Helper.Nearest(drops, transform.position);
+                    if (drop)
+                    {
+                        human.Pickup(drop.gameObject);
+                        drops.Remove(drop);
+                    }
+                    else
+                    {
+                        m_aiStatus = "";
+                        //TODO: Put the loot from the enemy in the chest
+                    }
                 }
-                else
-                {
-                    m_aiStatus = "";
-                    //TODO: Put the loot from the enemy in the chest
-                }
+            }
+            else
+            {
+                m_aiStatus = $"Moving to enemes loot";
             }
         }
         else
@@ -341,54 +349,57 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     private void UpdateNormalBehavior(float dt)
     {
-        if (!house || !house.town) return;
+        if (!sleepHouse || !town) return;
         if (EnvMan.instance.IsNight())
         {
             m_aiStatus = $"Going to sleep";
-            var bedPos = house.GetBedPos();
-            var hasBed = house.HasBed();
-            if (MoveTo(dt, bedPos, 3, false))
+            var bedPos = sleepHouse.GetBedPos(profile.name);
+            var hasBed = sleepHouse.HasBedFor(profile.name);
+            if (FindPath(bedPos))
             {
-                if (hasBed)
+                if (MoveTo(dt, bedPos, 3, false))
                 {
-                    var bed = house.GetBed();
-                    LookAt(bedPos);
-                    if (IsLookingAt(bedPos, 20f))
+                    if (hasBed)
                     {
+                        var bed = sleepHouse.GetBedFor(profile.name);
+                        LookAt(bedPos);
+                        // if (IsLookingAt(bedPos, 20f))
+                        //{
                         Sleep();
+                        //}
+                    }
+                    else
+                    {
+                        m_aiStatus = $"Need a bed";
                     }
                 }
                 else
                 {
-                    m_aiStatus = $"Need a bed";
+                    m_aiStatus = "Moving to bed";
                 }
             }
             else
             {
-                if (MoveTo(dt, house.transform.position, 3, false))
-                {
-                    m_aiStatus = "Can't reach bad, going to house";
-                }
-                else
-                {
-                    m_aiStatus = "Can't reach bed";
-                }
+                m_aiStatus = "Can't reach bed";
             }
         }
         else
         {
             if (inProfessionBehavior && HaveProfession())
             {
+                hammerMark.SetActive(true);
                 UpdateProfessionBehavior(dt);
                 return;
             }
             else
             {
+                hammerMark.SetActive(false);
                 if (m_professionBehaviorTimer == null && HaveProfession())
                 {
                     m_professionBehaviorTimer = new System.Timers.Timer(m_professionBehaviorInterval);
                     m_professionBehaviorTimer.Elapsed += (sendered, args) =>
                     {
+                        Debug("ProfessionBehavior timer Elapsed");
                         inProfessionBehavior = true;
                         m_professionBehaviorTimer.Stop();
                         m_professionBehaviorTimer = null;
@@ -400,6 +411,8 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
                 m_aiStatus = $"Random movement";
                 IdleMovement(dt);
             }
+
+            hammerMark.SetActive(inProfessionBehavior);
         }
     }
 
@@ -408,15 +421,15 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     private void Sleep()
     {
         if (IsSleeping()) return;
-        var bed = house.GetBed();
+        var bed = sleepHouse.GetBedFor(profile.name);
         AttachStart(bed.m_spawnPoint, bed.gameObject, true, true, "attach_bed",
             new Vector3(0.0f, 0.4f, 0.0f), attachOffset: new Vector3(0.0f, 1, 0));
-        m_aiStatus = $"Speeping";
+        m_aiStatus = $"Sleeping";
         m_animator.SetBool(MonsterAI.s_sleeping, true);
         m_nview.GetZDO().Set(ZDOVars.s_sleeping, true);
         m_wakeupEffects.Create(transform.position, transform.rotation);
         m_sleeping = true;
-        house.CloseAllDoors();
+        sleepHouse.CloseAllDoors();
     }
 
     private void UpdateProfessionBehavior(float dt)
@@ -438,8 +451,8 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     private void UpdateBuilder(float dt)
     {
-        if (!house || !house.town) return;
-        if (!targetBuilding) targetBuilding = house.town.FindWornBuilding();
+        if (!sleepHouse || !town) return;
+        if (!targetBuilding) targetBuilding = town.FindWornBuilding();
         if (!targetBuilding)
         {
             inProfessionBehavior = false;
@@ -450,39 +463,54 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         else
         {
             var buildingPos = targetBuilding.transform.position;
-            if (MoveTo(dt, buildingPos, targetBuilding.m_piece.m_blockRadius + 2, false))
+            if (FindPath(buildingPos))
             {
-                LookAt(buildingPos);
-                if (IsLookingAt(buildingPos, 20f))
+                if (MoveTo(dt, buildingPos, targetBuilding.m_piece.m_blockRadius + 2, false))
                 {
-                    var buildingName = targetBuilding.GetPrefabName();
-                    m_aiStatus = $"Repairs {buildingName}";
-                    human.m_zanim.SetTrigger("swing_hammer");
-                    targetBuilding.m_piece.m_placeEffect.Create(buildingPos,
-                        targetBuilding.transform.rotation);
-                    human.UseStamina(5);
-                    Debug($"{profile.name} repared {buildingName}");
-                    targetBuilding = null;
+                    LookAt(buildingPos);
+                    if (IsLookingAt(buildingPos, 20f))
+                    {
+                        var buildingName = targetBuilding.GetPrefabName();
+                        m_aiStatus = $"Repairs {buildingName}";
+                        human.m_zanim.SetTrigger("swing_hammer");
+                        targetBuilding.m_piece.m_placeEffect.Create(buildingPos,
+                            targetBuilding.transform.rotation);
+                        human.UseStamina(5);
+                        Debug($"{profile.name} repared {buildingName}");
+                        targetBuilding = null;
+                        targetBuilding.Repair();
+                        inProfessionBehavior = false;
+                        Chat.instance.SetNpcText(gameObject, Vector3.up * 1.5f, 20, 3, profile.name,
+                            $"I repared a {targetBuilding.m_piece.m_name.Localize()}", false);
+                    }
                 }
+                else
+                {
+                    m_aiStatus = $"Moving to {targetBuilding.GetPrefabName()}";
+                }
+            }
+            else
+            {
+                m_aiStatus = $"Can't reach {targetBuilding.GetPrefabName()}";
             }
         }
     }
 
     private void UpdateCrafter(float dt)
     {
-        if (inCrafting) return;
+        if (!inProfessionBehavior) return;
         if (profile.itemsToCraft == null || profile.itemsToCraft.Count == 0) return;
-        var randomItemToCraft =
-            profile.itemsToCraft.Random();
+        var randomItemToCraft = profile.itemsToCraft.Random();
         GoCraftItem(dt, randomItemToCraft);
     }
 
     private void GoCraftItem(float dt, CrafterItem crafterItem)
     {
-        if (!house || crafterItem == null) return;
-        if (!house.HaveEmptySlot())
+        if (!workHouse || crafterItem == null) return;
+        if (!workHouse.HaveEmptySlot())
         {
             m_aiStatus = $"Don't have free space for crafting.";
+            inProfessionBehavior = false;
             return;
         }
 
@@ -500,22 +528,33 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             m_aiStatus += $"\nHave requirements for {recipe.name}";
 
             var stationPos = craftingStation.transform.position;
-            if (MoveTo(dt, stationPos, craftingStation.m_useDistance * 0.8f, false))
+            if (FindPath(stationPos))
             {
-                LookAt(stationPos);
-                if (IsLookingAt(stationPos, 20f))
+                if (MoveTo(dt, stationPos, craftingStation.m_useDistance * 0.8f, false))
                 {
-                    inCrafting = true;
-                    craftingStation.PokeInUse();
-                    human.HideHandItems();
-                    human.m_zanim.SetInt("crafting", craftingStation.m_useAnimation);
-                    StartCoroutine(CraftItem(dt, craftingStation, crafterItem, recipe));
+                    LookAt(stationPos);
+                    if (IsLookingAt(stationPos, 20f))
+                    {
+                        inProfessionBehavior = true;
+                        craftingStation.PokeInUse();
+                        human.HideHandItems();
+                        human.m_zanim.SetInt("crafting", craftingStation.m_useAnimation);
+                        StartCoroutine(CraftItem(dt, craftingStation, crafterItem, recipe));
+                    }
                 }
+                else
+                {
+                    m_aiStatus = $"Moving to crafting station {craftingStation.GetPrefabName()}";
+                }
+            }
+            else
+            {
+                m_aiStatus = $"Can't reach crafting station {craftingStation.GetPrefabName()}";
             }
         }
         else
         {
-            inCrafting = false;
+            inProfessionBehavior = false;
             human.m_zanim.SetInt("crafting", 0);
             m_aiStatus = $"Don't have enough resources to craft {recipe.name}";
         }
@@ -529,20 +568,21 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             var resourceName = resource.m_resItem.m_itemData.m_shared.m_name;
             yield return new WaitForSeconds(2);
             m_aiStatus += $"\nSpends {resourceName}...";
-            house.RemoveItemFromInventory(resourceName);
+            workHouse.RemoveItemFromInventory(resourceName);
         }
 
         m_aiStatus += $"\nFinishing crafting {recipe.name}...";
         yield return new WaitForSeconds(2);
         var itemDrop = Instantiate(recipe.m_item, craftingStation.transform.position, Quaternion.identity);
         itemDrop.m_itemData.m_durability = itemDrop.m_itemData.GetMaxDurability();
-        if (house.AddItem(itemDrop))
+        if (workHouse.AddItem(itemDrop))
         {
             itemDrop.m_nview.Destroy();
+            Chat.instance.SetNpcText(gameObject, Vector3.up * 1.5f, 20, 3, profile.name,
+                $"I made a new {itemDrop.m_itemData.m_shared.m_name.Localize()}", false);
             //TODO: emote
         }
 
-        inCrafting = false;
         human.m_zanim.SetInt("crafting", 0);
         inProfessionBehavior = false;
     }
@@ -555,13 +595,13 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     private bool HaveCraftingStationForRecipe(Recipe recipe, out CraftingStation station)
     {
-        station = house.GetCraftingStations().Find(x => x.m_name == recipe.m_craftingStation.m_name);
+        station = workHouse.GetCraftingStations().Find(x => x.m_name == recipe.m_craftingStation.m_name);
         return station;
     }
 
     private bool HaveItemsForRecipe(Recipe recipe)
     {
-        var inventory = house.GetHouseInventory();
+        var inventory = workHouse.GetHouseInventory();
         foreach (var resource in recipe.m_resources)
         {
             var findItem = inventory.Find(x => x.m_shared.m_name == resource.m_resItem.m_itemData.m_shared.m_name);
@@ -644,8 +684,8 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     private void OnTargetDeath()
     {
-        Debug($"{profile.name} {m_aiStatus}");
         m_aiStatus = "Target dead, go for loot";
+        Debug($"{profile.name} {m_aiStatus}");
     }
 
     public bool DoAttack(Character target, bool isFriend)
@@ -658,7 +698,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         return num != 0;
     }
 
-    public bool UpdateFooding_falseNotNeed(Humanoid humanoid, float dt)
+    public bool UpdateFooding_falseNotNeed(float dt)
     {
         if (!IsHungry()) return false;
         m_consumeSearchTimer += dt;
@@ -672,22 +712,35 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         if (!foodHouse || m_currentConsumeItem == null || !m_containerToGrab) return false;
 
         m_aiStatus = "Looking for food";
-        if (MoveTo(dt, m_containerToGrab.transform.position, 2, m_aiStatus == "Can't reach food house"))
+        var chestPos = m_containerToGrab.transform.position;
+        if (FindPath(chestPos))
         {
-            LookAt(m_containerToGrab.transform.position);
-            //if ( IsLookingAt(m_containerToGrab.transform.position, 20f) && )
-            //{
-            m_onConsumedItem?.Invoke(m_currentConsumeItem);
-            humanoid.m_consumeItemEffects?.Create(transform.position, Quaternion.identity);
-            m_animator.SetTrigger("eat");
-            Debug($"{profile.name} ate the {m_currentConsumeItem.m_shared.m_name.Localize()}");
-            m_currentConsumeItem = null;
-            foodHouse = null;
-            var inventory = m_containerToGrab.GetInventory();
-            inventory.RemoveItem(m_currentConsumeItem.m_shared.m_name, 1);
-            //human.ConsumeItem(inventory, inventory.GetItem(m_currentConsumeItem.m_shared.m_name));
+            if (MoveTo(dt, chestPos, 2, m_aiStatus == "Can't reach food house"))
+            {
+                LookAt(chestPos);
+                //if (IsLookingAt(chestPos, 20f))
+                //{
+                m_onConsumedItem?.Invoke(m_currentConsumeItem);
+                human.m_consumeItemEffects?.Create(transform.position, Quaternion.identity);
+                m_animator.SetTrigger("eat");
+                Debug($"{profile.name} ate the {m_currentConsumeItem.m_shared.m_name.Localize()}");
+                var inventory = m_containerToGrab.GetInventory();
+                inventory.RemoveItem(m_currentConsumeItem.m_shared.m_name, 1);
+                m_currentConsumeItem = null;
+                foodHouse = null;
+                //}
+                // else
+                //{
+                //    m_aiStatus = $"Can't look at food container {m_containerToGrab.GetPrefabName()}";
+                //    return true;
+                // }
+            }
+            else
+            {
+                m_aiStatus = "Moving to food house";
+            }
+
             return true;
-            //}
         }
         else
         {
@@ -695,9 +748,6 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             m_aiStatus = "Can't reach food house";
             return false;
         }
-
-        return false;
-
         //false means don't need to eat.
     }
 
@@ -762,8 +812,9 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     private void FindFood()
     {
+        if (!town) return;
         var result = new List<NPC_House>();
-        result = house.town.FindFoodHouses();
+        result = town.FindFoodHouses();
         if (result == null || result.Count == 0) return;
 
         foreach (var npcHouse in result)
@@ -850,6 +901,14 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     public override void OnDamaged(float damage, Character attacker)
     {
+        foreach (var brain in allNPCs)
+        {
+            brain.SomeOneDamaged(damage, attacker);
+        }
+    }
+
+    public void SomeOneDamaged(float damage, Character attacker)
+    {
         base.OnDamaged(damage, attacker);
         Wakeup();
         SetAlerted(true);
@@ -863,7 +922,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         m_nview.GetZDO().Set(ZDOVars.s_sleeping, false);
         m_wakeupEffects.Create(transform.position, transform.rotation);
         m_sleeping = false;
-        if (house) house.OpenAllDoors();
+        if (sleepHouse) sleepHouse.OpenAllDoors();
         AttachStop();
     }
 
@@ -874,6 +933,8 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         m_targetCreature = attacker;
         m_lastKnownTargetPos = attacker.transform.position;
         m_beenAtLastPos = false;
+        if (!m_targetCreature.m_onDeath.GetInvocationList().Contains(OnTargetDeath))
+            m_targetCreature.m_onDeath += OnTargetDeath;
     }
 
     public void Init(NPC_Profile profile_)
@@ -890,19 +951,21 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
                 break;
         }
 
-        house.OpenAllDoors();
+        sleepHouse.OpenAllDoors();
     }
 
-    public void SetHouse(NPC_House npcHouse)
+    public void SetHouse(NPC_House sleepHouse_, NPC_House workHouse_)
     {
-        house = npcHouse;
-        m_randomMoveRange = house.town.GetRadius();
-        m_spawnPoint = house.town.transform.position;
+        sleepHouse = sleepHouse_;
+        town = sleepHouse.town;
+        workHouse = workHouse_;
+        m_randomMoveRange = town.GetRadius();
+        m_spawnPoint = town.transform.position;
         m_patrol = false;
-        m_patrolPoint = house.town.transform.position;
+        m_patrolPoint = town.transform.position;
         SetPatrolPoint(transform.position);
-        npcHouse.RegisterNPC(this);
-        npcHouse.OpenAllDoors();
+        sleepHouse.RegisterNPC(this);
+        sleepHouse.OpenAllDoors();
     }
 
     public NPC_Profile GetSavedProfile()
@@ -919,11 +982,11 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     {
         var sb = new StringBuilder();
         sb.AppendLine($"{profile.name}:");
-        sb.AppendLine($"{(profile.m_profession == NPC_Profession.None ? "" : "Profession: " + profile.m_profession)}");
+        //sb.AppendLine($"{(profile.m_profession == NPC_Profession.None ? "" : "Profession: " + profile.m_profession)}");
         sb.AppendLine($"Ai: {m_aiStatus}");
         sb.AppendLine($"Hungry: {IsHungry()}");
         sb.AppendLine($"Sleeping: {IsSleeping()}");
-        sb.AppendLine($"{Const.UseKey} to talk");
+        //sb.AppendLine($"{Const.UseKey} to talk");
 
         return sb.ToString().Localize();
     }

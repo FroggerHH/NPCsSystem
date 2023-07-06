@@ -14,22 +14,23 @@ namespace NPCsSystem;
 [HarmonyPatch]
 public class BuildInHousePatch
 {
-    [HarmonyPatch(typeof(Piece), nameof(Piece.Awake)), HarmonyPostfix]
+    [HarmonyPatch(typeof(Piece), nameof(Piece.Awake)), HarmonyPostfix, HarmonyWrapSafe]
     public static void PiecePlace(Piece __instance)
     {
-        __instance.StartCoroutine(WaitForPlace(__instance));
+        //__instance.StartCoroutine(WaitForPlace(__instance));
+        PlacePieceInTown(__instance);
     }
 
-    [HarmonyPatch(typeof(Piece), nameof(Piece.OnDestroy)), HarmonyPrefix]
+    [HarmonyPatch(typeof(Piece), nameof(Piece.OnDestroy)), HarmonyPrefix, HarmonyWrapSafe]
     public static void PieceDestroy(Piece __instance)
     {
         if (!__instance.IsPlacedByPlayer()) return;
         var house = NPC_House.FindHouse(__instance.transform.position);
         if (!house) return;
 
-        if (__instance.TryGetComponent(out Bed _))
+        if (__instance.TryGetComponent(out Bed bed))
         {
-            house.SetBed(null);
+            house.RemoveBed(bed);
         }
 
         if (__instance.TryGetComponent(out CraftingStation craftingStatione))
@@ -45,6 +46,12 @@ public class BuildInHousePatch
         if (__instance.TryGetComponent(out Door door))
         {
             house.RemoveDoor(door);
+        }
+
+
+        if (__instance.TryGetComponent(out Sign sign))
+        {
+            house.RemoveSign(sign);
         }
     }
 
@@ -62,7 +69,7 @@ public class BuildInHousePatch
 
         if (piece.TryGetComponent(out Bed bed))
         {
-            house.SetBed(bed);
+            house.AddBed(bed);
         }
 
         if (piece.TryGetComponent(out CraftingStation craftingStatione))
@@ -73,6 +80,11 @@ public class BuildInHousePatch
         if (piece.TryGetComponent(out Container container))
         {
             house.AddChest(container);
+        }
+
+        if (piece.TryGetComponent(out Sign sign))
+        {
+            house.AddSign(sign);
         }
     }
 }

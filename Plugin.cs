@@ -170,7 +170,8 @@ internal class Plugin : BaseUnityPlugin
         Creature PlayerNPS = new(bundle, "PlayerNPS")
         {
             CanHaveStars = false,
-            CanBeTamed = false
+            CanBeTamed = false,
+            CanSpawn = false
         };
 
         PrefabManager.RegisterPrefab(bundle, "TestNullTown");

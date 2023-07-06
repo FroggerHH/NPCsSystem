@@ -16,9 +16,9 @@ public class OnContainerChanged
     [HarmonyPatch(typeof(Container), nameof(Container.OnContainerChanged)), HarmonyPostfix, HarmonyWrapSafe]
     public static void Patch(Container __instance)
     {
-        //var house = NPC_House.FindHouse(__instance.transform.position);
-        //if (!house) return;
+        //var sleepHouse = NPC_House.FindHouse(__instance.transform.position);
+        //if (!sleepHouse) return;
 
-        //house.ChestInventoryChanged();
+        //sleepHouse.ChestInventoryChanged();
     }
 }

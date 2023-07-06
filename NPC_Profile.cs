@@ -50,5 +50,7 @@ namespace NPCsSystem
 
             itemsToCraft.Add(new(item));
         }
+
+        public bool HasProfession() => m_profession != null && m_profession != NPC_Profession.None;
     }
 }

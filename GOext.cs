@@ -6,11 +6,23 @@ public static class GOext
 {
     public static string GetPrefabName(this GameObject gameObject)
     {
-        return Utils.GetPrefabName(gameObject);
+        var prefabName = Utils.GetPrefabName(gameObject);
+        for (int i = 0; i < 80; i++)
+        {
+            prefabName = prefabName.Replace($" ({i})", "");
+        }
+
+        return prefabName;
     }
-    
+
     public static string GetPrefabName<T>(this T gameObject) where T : MonoBehaviour
     {
-        return Utils.GetPrefabName((gameObject as MonoBehaviour).gameObject);
+        var prefabName = Utils.GetPrefabName((gameObject as MonoBehaviour).gameObject);
+        for (int i = 0; i < 80; i++)
+        {
+            prefabName = prefabName.Replace($" ({i})", "");
+        }
+
+        return prefabName;
     }
 }
