@@ -25,6 +25,63 @@ namespace NPCsSystem
         [Header("Warrior")] [SerializeField] public string[] startWeapons;
 
 
+        public List<string> talksClearWeather_Day = new()
+        {
+            "$npcTalk_ClearWeather_Day1",
+            "$npcTalk_ClearWeather_Day2",
+            "$npcTalk_ClearWeather_Day3",
+            "$npcTalk_ClearWeather_Day4",
+            "$npcTalk_ClearWeather_Day5",
+            "$npcTalk_ClearWeather_Day6",
+            "$npcTalk_ClearWeather_Day7",
+            "$npcTalk_ClearWeather_Day8",
+            "$npcTalk_ClearWeather_Day9",
+            "$npcTalk_ClearWeather_Day10"
+        };
+
+        public List<string> talksClearWeather_Night = new()
+        {
+            "$npcTalk_ClearWeather_Night1",
+            "$npcTalk_ClearWeather_Night2",
+            "$npcTalk_ClearWeather_Night3",
+            "$npcTalk_ClearWeather_Night4",
+            "$npcTalk_ClearWeather_Night5",
+            "$npcTalk_ClearWeather_Night6",
+            "$npcTalk_ClearWeather_Night7",
+            "$npcTalk_ClearWeather_Night8",
+            "$npcTalk_ClearWeather_Night9",
+            "$npcTalk_ClearWeather_Night10"
+        };
+
+        public List<string> talksBadWeather_Day = new()
+        {
+            "$npcTalk_BadWeather_Day1",
+            "$npcTalk_BadWeather_Day2",
+            "$npcTalk_BadWeather_Day3",
+            "$npcTalk_BadWeather_Day4",
+            "$npcTalk_BadWeather_Day5",
+            "$npcTalk_BadWeather_Day6",
+            "$npcTalk_BadWeather_Day7",
+            "$npcTalk_BadWeather_Day8",
+            "$npcTalk_BadWeather_Day9",
+            "$npcTalk_BadWeather_Day10"
+        };
+
+        public List<string> talksBadWeather_Night = new()
+        {
+            "$npcTalk_BadWeather_Night1",
+            "$npcTalk_BadWeather_Night2",
+            "$npcTalk_BadWeather_Night3",
+            "$npcTalk_BadWeather_Night4",
+            "$npcTalk_BadWeather_Night5",
+            "$npcTalk_BadWeather_Night6",
+            "$npcTalk_BadWeather_Night7",
+            "$npcTalk_BadWeather_Night8",
+            "$npcTalk_BadWeather_Night9",
+            "$npcTalk_BadWeather_Night10"
+        };
+
+
         public override string ToString()
         {
             return

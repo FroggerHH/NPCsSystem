@@ -20,8 +20,7 @@ namespace NPCsSystem
         internal ZNetView m_view;
         internal NPC_Town town;
         private Dictionary<string, Bed> beds = new();
-        private Dictionary<Sign, Bed> bedSigns = new();
-        private HashSet<Bed> bedObjs = new();
+        private List<Bed> bedObjs = new();
         private List<CraftingStation> craftingStations = new List<CraftingStation>();
         private List<Container> chests = new List<Container>();
         private List<Door> doors = new List<Door>();
@@ -31,8 +30,10 @@ namespace NPCsSystem
         public NPC_Profession professionForProfessionHouse;
         public int maxNPCs = 1;
         [SerializeField] private float radius = 10;
-        public HouseType houseType = HouseType.Housing;
+        [SerializeField] private HouseType houseType = HouseType.Housing;
+        private RequestBoard requestBoard;
 
+        public HouseType GetHouseType() => houseType;
         public float GetRadius() => radius;
 
         private void Reset()
@@ -52,6 +53,27 @@ namespace NPCsSystem
                 m_view.m_persistent = true;
                 m_view.m_type = ZDO.ObjectType.Default;
             }
+
+            // if (name.StartsWith("HouseSettings_Crafter"))
+            // {
+            //     professionForProfessionHouse = NPC_Profession.Crafter;
+            //     houseType = ProfessionHouse;
+            // }
+            // else if (name.StartsWith("HouseSettings_Hotel"))
+            // {
+            //     professionForProfessionHouse = NPC_Profession.None;
+            //     houseType = Housing;
+            // }
+            // else if (name.StartsWith("HouseSettings_Warehouse"))
+            // {
+            //     professionForProfessionHouse = NPC_Profession.None;
+            //     houseType = Warehouse;
+            // }
+            // else if (name.StartsWith("HouseSettings_TownHall"))
+            // {
+            //     professionForProfessionHouse = NPC_Profession.None;
+            //     houseType = TownHall;
+            // }
         }
 
         private void OnDrawGizmos()
@@ -65,7 +87,6 @@ namespace NPCsSystem
             Utils.DrawGizmoCircle(this.transform.position, GetRadius(), 32);
         }
 
-
         private void Awake()
         {
             allHouses.Add(this);
@@ -76,31 +97,6 @@ namespace NPCsSystem
         private void Start()
         {
             OpenAllDoors();
-            FindAllBeds();
-            FindAllChests();
-
-
-            var signOrig = ZNetScene.instance.GetPrefab("Sign");
-
-            foreach (var bed in bedObjs)
-            {
-                foreach (var sign in bed.GetComponentsInChildren<GameObject>())
-                {
-                    if (sign.name.StartsWith("sign_REPLACE_"))
-                    {
-                        var newSign = Instantiate(signOrig, sign.transform.position, sign.transform.rotation);
-                        Destroy(sign.gameObject);
-                        AddBedSign(newSign.GetComponent<Sign>(), bed);
-                    }
-                }
-            }
-        }
-
-        private void AddBedSign(Sign sign, Bed bed)
-        {
-            if (bedSigns.ContainsKey(sign)) return;
-            bedSigns.Add(sign, bed);
-            MarkBedSigns();
         }
 
         private IEnumerator RegisterHouse()
@@ -123,15 +119,9 @@ namespace NPCsSystem
             Piece.GetAllPiecesInRadius(transform.position, GetRadius(), pieces);
             foreach (var piece in pieces)
             {
-                if (piece.m_name == "$piece_bed")
+                if (piece.TryGetComponent(out CraftingStation craftingStation))
                 {
-                    //SetBed(piece.GetComponent<Bed>());
-                    continue;
-                }
-
-                if (piece.m_description == "$piece_craftingstation")
-                {
-                    AddCraftingStation(piece.GetComponent<CraftingStation>());
+                    AddCraftingStation(craftingStation);
                     continue;
                 }
 
@@ -146,7 +136,28 @@ namespace NPCsSystem
                     AddDoor(door);
                     continue;
                 }
+
+                if (piece.TryGetComponent(out Bed bed))
+                {
+                    bedObjs.Add(bed);
+                    continue;
+                }
+
+                if (piece.TryGetComponent(out Sign sign))
+                {
+                    signs.Add(sign);
+                    continue;
+                }
+
+                if (piece.TryGetComponent(out RequestBoard _requestBoard))
+                {
+                    requestBoard = _requestBoard;
+                    requestBoard.Init(town);
+                    continue;
+                }
             }
+
+            DistributeBeds();
 
             Load();
         }
@@ -209,45 +220,34 @@ namespace NPCsSystem
             DistributeBeds();
         }
 
-        // ReSharper disable Unity.PerformanceAnalysis
         private void DistributeBeds()
         {
-            Debug($"Distributing beds, currentnpcs is {currentnpcs.Count}");
             if (currentnpcs.Count == 0) return;
             beds.Clear();
             foreach (var npc in currentnpcs)
             {
                 var npcName = npc.profile.name;
 
-                FindAllBeds();
                 foreach (var bed in bedObjs)
                 {
                     if (beds.ContainsValue(bed) || beds.ContainsKey(npcName)) continue;
 
                     beds.Add(npcName, bed);
                     bed.SetOwner(88, npcName);
-                    MarkBedSigns();
                     continue;
                 }
             }
-        }
 
-        private void MarkBedSigns()
-        {
-            foreach (var bedSign in bedSigns)
+
+            foreach (var request in town.GetRequests())
             {
-                var sign = bedSign.Key;
-                sign.m_nview.ClaimOwnership();
-                sign.m_nview.GetZDO().Set(ZDOVars.s_text, bedSign.Value.GetOwnerName());
-                sign.m_nview.GetZDO().Set(ZDOVars.s_author, PrivilegeManager.GetNetworkUserId());
-                sign.UpdateText();
+                if (request.requestType != RequestType.Bed) continue;
+                if (HasBedFor(request.npcName))
+                {
+                    town.CompleteRequest(request);
+                }
             }
         }
-
-        // private bool IsFirsLoad()
-        // {
-        //     return m_view.GetZDO().GetBool("FirsLoad", true);
-        // }
 
         public void AddCraftingStation(CraftingStation craftingStatione)
         {
@@ -372,6 +372,9 @@ namespace NPCsSystem
         //&& craftingStations.Count > 0
         ;
 
+        internal bool IsEntertainmentHouse() => (houseType == Entertainment ||
+                                                 houseType == EntertainmentAndProfessionHouse || houseType == All);
+
         internal bool IsFoodHouse() => (houseType == Warehouse || houseType == WarehouseAndProfessionHouse ||
                                         houseType == HousingAndWarehouse || houseType == All)
                                        && chests.Count > 0;
@@ -476,6 +479,26 @@ namespace NPCsSystem
             return false;
         }
 
+        public bool AddDefaultItem(string prefabName, int count = 1)
+        {
+            foreach (var chest in chests)
+            {
+                var dropData = new DropTable.DropData()
+                {
+                    m_item = ZNetScene.instance.GetPrefab(prefabName),
+                    m_stackMin = count,
+                    m_stackMax = count
+                };
+                if (chest.m_defaultItems.m_drops.Count < chest.m_width * chest.m_height)
+                {
+                    chest.m_defaultItems.m_drops.Add(dropData);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public bool HaveFood()
         {
             return GetItemsByType(ItemDrop.ItemData.ItemType.Consumable, out Container _).Count > 0;
@@ -499,30 +522,6 @@ namespace NPCsSystem
             }
         }
 
-        public void FindAllChests()
-        {
-            var children = town.FindAllBuildings(this);
-            foreach (var child in children)
-            {
-                if (child.TryGetComponent(out Container chest))
-                {
-                    chests.Add(chest);
-                }
-            }
-        }
-
         public bool IsAvailable() => currentnpcs.Count < maxNPCs;
-
-        public void FindAllBeds()
-        {
-            var children = town.FindAllBuildings(this);
-            foreach (var child in children)
-            {
-                if (child.TryGetComponent(out Bed bed))
-                {
-                    bedObjs.Add(bed);
-                }
-            }
-        }
     }
 }

@@ -100,6 +100,8 @@ internal class Plugin : BaseUnityPlugin
 
     #region configs
 
+    public static ConfigEntry<bool> npcsNoCost;
+
     #endregion
 
     #endregion
@@ -150,6 +152,9 @@ internal class Plugin : BaseUnityPlugin
         configSync.AddLockingConfigEntry(config("Main", "Lock Configuration", Toggle.On,
             "If on, the configuration is locked and can be changed by server admins only."));
 
+        npcsNoCost = config("Main", "NPCs dont need resources", false, "");
+        Config.Save();
+
         #endregion
 
         bundle = RegisterAssetBundle("npsssystem");
@@ -176,8 +181,8 @@ internal class Plugin : BaseUnityPlugin
 
         PrefabManager.RegisterPrefab(bundle, "TestNullTown");
 
-        TownDB.Initialize(bundle);
-        var Bill = TownDB.GetProfile("Bill");
+        NPCsManager.Initialize(bundle);
+        var Bill = NPCsManager.GetNPCProfile("Bill");
         Bill.AddCrafterItem("ArmorBronzeChest");
         Bill.AddCrafterItem("ArmorBronzeLegs");
         Bill.AddCrafterItem("ArrowBronze");
@@ -192,7 +197,7 @@ internal class Plugin : BaseUnityPlugin
         Bill.AddCrafterItem("SwordBronze");
 
 
-        var Brian = TownDB.GetProfile("Brian");
+        var Brian = NPCsManager.GetNPCProfile("Brian");
         Brian.AddCrafterItem("ArmorIronChest");
         Brian.AddCrafterItem("ArmorIronLegs");
         Brian.AddCrafterItem("ArrowIron");
@@ -207,18 +212,32 @@ internal class Plugin : BaseUnityPlugin
         Brian.AddCrafterItem("ShieldIronTower");
         Brian.AddCrafterItem("SwordIron");
 
-        var Carl = TownDB.GetProfile("Carl");
+        var Carl = NPCsManager.GetNPCProfile("Carl");
         Carl.AddCrafterItem("ArrowSilver");
         Carl.AddCrafterItem("MaceSilver");
         Carl.AddCrafterItem("ShieldSilver");
         Carl.AddCrafterItem("SwordSilver");
 
-        var Charles = TownDB.GetProfile("Charles");
+        var Charles = NPCsManager.GetNPCProfile("Charles");
         Charles.AddCrafterItem("ArmorLeatherChest");
         Charles.AddCrafterItem("ArmorLeatherLegs");
         Charles.AddCrafterItem("ArmorTrollLeatherChest");
         Charles.AddCrafterItem("ArmorTrollLeatherLegs");
         Charles.AddCrafterItem("HelmetLeather");
         Charles.AddCrafterItem("HelmetTrollLeather");
+        
+        NPCsManager.AddDefaultItemToHouse("NPSHouseWarehouse", "CookedDeerMeat", 80);
+        NPCsManager.AddDefaultItemToHouse("NPSHouseWarehouse", "CookedMeat", 80);
+        NPCsManager.AddDefaultItemToHouse("NPSHouseWarehouse", "RawMeat", 25);
+        NPCsManager.AddDefaultItemToHouse("NPSHouseWarehouse", "Bronze", 155);
+        NPCsManager.AddDefaultItemToHouse("NPSHouseWarehouse", "Iron", 155);
+        NPCsManager.AddDefaultItemToHouse("NPSHouseWarehouse", "Silver", 155);
+        NPCsManager.AddDefaultItemToHouse("NPSHouseWarehouse", "BoneFragments", 155);
+        NPCsManager.AddDefaultItemToHouse("NPSHouseWarehouse", "DeerHide", 155);
+        NPCsManager.AddDefaultItemToHouse("NPSHouseWarehouse", "TrollHide", 155);
+        NPCsManager.AddDefaultItemToHouse("NPSHouseWarehouse", "Feathers", 155);
+        NPCsManager.AddDefaultItemToHouse("NPSHouseWarehouse", "Wood", 155);
+
+        LocalizationManager.Localizer.Load();
     }
 }

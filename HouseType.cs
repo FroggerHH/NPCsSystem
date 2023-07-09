@@ -2,7 +2,7 @@ using System;
 
 namespace NPCsSystem
 {
-    public enum HouseType : int
+    public enum HouseType
     {
         None,
         Housing,
@@ -14,6 +14,7 @@ namespace NPCsSystem
         WarehouseAndProfessionHouse,
         Entertainment,
         EntertainmentAndProfessionHouse,
+        TownHall,
         All
     }
 }

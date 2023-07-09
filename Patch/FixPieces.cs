@@ -14,8 +14,15 @@ namespace NPCsSystem;
 public class FixPieces
 {
     [HarmonyPatch(typeof(Piece), nameof(Piece.Awake)), HarmonyPostfix, HarmonyWrapSafe]
-    public static void Fix(Piece __instance)
+    public static void FixPiece(Piece __instance)
     {
         Materials.FixPiece(__instance);
+    }
+
+    [HarmonyPatch(typeof(Sign), nameof(Sign.Awake)), HarmonyPrefix, HarmonyWrapSafe]
+    public static bool FixSign(Sign __instance)
+    {
+        if (__instance.name.Contains("REPLACE")) return false;
+        return true;
     }
 }

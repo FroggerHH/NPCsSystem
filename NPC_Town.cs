@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -19,6 +20,8 @@ namespace NPCsSystem
         public HashSet<NPC_House> houses = new HashSet<NPC_House>();
         public float radius;
         [SerializeField] private int housesNeded = 5;
+        private List<Request> requests = new();
+        private Action<Request> onCompleteRequest;
 
         private void SetReferenses()
         {
@@ -91,7 +94,7 @@ namespace NPCsSystem
 
                 npc = Instantiate(profile.m_prefab, sleepHouse.GetBedPos(profile.name), Quaternion.identity)
                     .GetComponent<NPC_Brain>();
-                npc.SetHouse(sleepHouse, workHouse);
+                npc.SetHouse(sleepHouse, null);
                 npc.Init(profile);
             }
 
@@ -104,11 +107,28 @@ namespace NPCsSystem
 
             foreach (var house in houses)
             {
-                var ht = house.houseType;
+                var ht = house.GetHouseType();
                 if (!house.IsAvailable() || ht == None) continue;
                 if (house.IsProfessionHouse())
                 {
                     if (profile.m_profession == house.professionForProfessionHouse) returnHouses.Add(house);
+                }
+            }
+
+            return returnHouses.FirstOrDefault();
+        }
+
+        internal NPC_House FindEntertainmentHouse()
+        {
+            List<NPC_House> returnHouses = new();
+
+            foreach (var house in houses)
+            {
+                var ht = house.GetHouseType();
+                if (!house.IsAvailable() || ht == None) continue;
+                if (house.IsEntertainmentHouse())
+                {
+                    returnHouses.Add(house);
                 }
             }
 
@@ -121,7 +141,7 @@ namespace NPCsSystem
 
             foreach (var house in houses)
             {
-                var ht = house.houseType;
+                var ht = house.GetHouseType();
                 if (!house.IsAvailable() || ht == None) continue;
 
                 if (house.IsHousingHouse())
@@ -138,7 +158,7 @@ namespace NPCsSystem
             List<NPC_House> returnHouses = new();
             foreach (var house in houses)
             {
-                var ht = house.houseType;
+                var ht = house.GetHouseType();
                 if (ht == None) continue;
                 if (house.IsFoodHouse() && house.HaveFood())
                 {
@@ -179,6 +199,15 @@ namespace NPCsSystem
             {
                 Debug("Initing town");
                 TrySpawnNpcs();
+                InitAllNPCs();
+            }
+        }
+
+        private void InitAllNPCs()
+        {
+            foreach (var npc in NPC_Brain.allNPCs)
+            {
+                npc.workHouse = FindWorkHouse(npc.profile);
             }
         }
 
@@ -232,6 +261,32 @@ namespace NPCsSystem
             }
 
             return wearNTears;
+        }
+
+        public bool RegisterNPCRequest(Request request)
+        {
+            if (requests.Contains(request)) return false;
+            requests.Add(request);
+            return true;
+        }
+
+        public List<Request> GetRequests() => requests;
+
+        public void CompleteRequest(Request request)
+        {
+            if (!requests.Contains(request)) return;
+            requests.Remove(request);
+            onCompleteRequest?.Invoke(request);
+            var npc = GetNPC(request.npcName);
+            if (npc)
+            {
+                npc.Emote("CompleteRequest");
+            }
+        }
+
+        private NPC_Brain GetNPC(string npcName)
+        {
+            return NPC_Brain.allNPCs.ToList().Find(x => x.profile.name == npcName);
         }
     }
 }

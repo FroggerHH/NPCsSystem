@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using UnityEngine;
@@ -23,6 +24,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     internal NPC_Profile profile;
     internal NPC_House sleepHouse;
     internal NPC_House workHouse;
+    internal NPC_House entertainmentHouse;
     internal NPC_Town town;
     internal Humanoid human;
 
@@ -42,6 +44,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     public Vector3 m_lastKnownTargetPos = Vector3.zero;
     public bool m_beenAtLastPos;
     public string m_aiStatus = string.Empty;
+    public string m_aiStatusError = string.Empty;
     public float m_fleeIfLowHealth;
     public bool m_fleeIfNotAlerted;
     public float m_alertRange = 9999f;
@@ -76,10 +79,11 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     private Transform m_attachPointCamera;
     private Collider[] m_attachColliders;
     public Text ai_statusText;
-    private bool inProfessionBehavior = false;
+    private bool inCrafting = false;
     private GameObject hammerMark;
     private WearNTear targetBuilding;
     private Vector3 lootPos;
+    private CrafterItem randomItemToCraft;
 
     public override void Awake()
     {
@@ -102,7 +106,8 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         }
 
         m_afraidOfFire = false;
-        ai_statusText = Utils.FindChild(transform, "Ai status").GetComponent<Text>();
+        var findChild_ai_statusText = Utils.FindChild(transform, "Ai status");
+        if (findChild_ai_statusText) ai_statusText = findChild_ai_statusText.GetComponent<Text>();
         hammerMark = Utils.FindChild(transform, "HammerMark").gameObject;
         //m_pathAgentType = 0;
         hammerMark.SetActive(false);
@@ -110,6 +115,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     public void UpdateAiStatus()
     {
+        if (!ai_statusText) return;
         ai_statusText.text = m_aiStatus;
     }
 
@@ -131,9 +137,9 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     public new void UpdateAI(float dt)
     {
+        UpdateAiStatus();
         if (!m_nview.IsOwner()) return;
-        if (IsSleeping()) UpdateSleep(dt);
-        else
+        if (!UpdateSleep(dt) && !IsSleeping())
         {
             bool canHearTarget;
             bool canSeeTarget;
@@ -203,8 +209,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
                     }
                     else
                     {
-                        if (UpdateFooding_falseNotNeed(dt) == false)
-                            UpdateNormalBehavior(dt);
+                        UpdateNormalBehavior(dt);
                     }
                 }
                 else if (itemData.m_shared.m_aiTargetType == ItemDrop.ItemData.AiTarget.Enemy && IsAlerted())
@@ -265,36 +270,6 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
                         }
                     }
                 }
-                // else
-                // {
-                //     if (itemData.m_shared.m_aiTargetType != ItemDrop.ItemData.AiTarget.FriendHurt &&
-                //         itemData.m_shared.m_aiTargetType != ItemDrop.ItemData.AiTarget.Friend && IsAlerted())
-                //         return;
-                //     m_aiStatus = "Helping friend";
-                //     Character target = itemData.m_shared.m_aiTargetType == ItemDrop.ItemData.AiTarget.FriendHurt
-                //         ? HaveHurtFriendInRange(m_viewRange)
-                //         : HaveFriendInRange(m_viewRange);
-                //     if (target)
-                //     {
-                //         if (Vector3.Distance(target.transform.position, transform.position) <
-                //             itemData.m_shared.m_aiAttackRange)
-                //         {
-                //             if (flag)
-                //             {
-                //                 StopMoving();
-                //                 LookAt(target.transform.position);
-                //                 DoAttack(target, true);
-                //             }
-                //             else
-                //                 RandomMovement(dt, target.transform.position);
-                //         }
-                //         else
-                //             MoveTo(dt, target.transform.position, 0.0f, IsAlerted());
-                //     }
-                //     else
-                //         RandomMovement(dt, transform.position, true);
-                //}
-                //}
             }
         }
     }
@@ -349,71 +324,90 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     private void UpdateNormalBehavior(float dt)
     {
-        if (!sleepHouse || !town) return;
-        if (EnvMan.instance.IsNight())
+        if (!sleepHouse || !town || IsSleeping()) return;
+        if (HaveProfession() && IsTimeToWork())
         {
-            m_aiStatus = $"Going to sleep";
-            var bedPos = sleepHouse.GetBedPos(profile.name);
-            var hasBed = sleepHouse.HasBedFor(profile.name);
-            if (FindPath(bedPos))
-            {
-                if (MoveTo(dt, bedPos, 3, false))
-                {
-                    if (hasBed)
-                    {
-                        var bed = sleepHouse.GetBedFor(profile.name);
-                        LookAt(bedPos);
-                        // if (IsLookingAt(bedPos, 20f))
-                        //{
-                        Sleep();
-                        //}
-                    }
-                    else
-                    {
-                        m_aiStatus = $"Need a bed";
-                    }
-                }
-                else
-                {
-                    m_aiStatus = "Moving to bed";
-                }
-            }
-            else
-            {
-                m_aiStatus = "Can't reach bed";
-            }
+            hammerMark.SetActive(true);
+            if (!UpdateProfessionBehavior(dt))
+                UpdateFreeTime(dt);
         }
         else
         {
-            if (inProfessionBehavior && HaveProfession())
+            hammerMark.SetActive(false);
+            if (IsDinnerTime())
             {
-                hammerMark.SetActive(true);
-                UpdateProfessionBehavior(dt);
-                return;
+                if (!UpdateFooding_falseNotNeed(dt))
+                {
+                    UpdateFreeTime(dt);
+                }
+            }
+
+            UpdateFreeTime(dt);
+        }
+    }
+
+    private void UpdateFreeTime(float dt)
+    {
+        m_aiStatus = "Chilling (having free time)";
+        entertainmentHouse = town.FindEntertainmentHouse();
+        TrySaySmt(dt);
+        if (entertainmentHouse)
+        {
+            RandomMovementArroundPoint(dt, entertainmentHouse.transform.position, entertainmentHouse.GetRadius(),
+                false);
+            return;
+        }
+
+        IdleMovement(dt);
+    }
+
+    private void TrySaySmt(float dt)
+    {
+        m_pauseTimer += dt;
+        if (m_pauseTimer > m_circleTargetInterval)
+        {
+            if (m_pauseTimer > m_circleTargetInterval + m_circleTargetDuration)
+                m_pauseTimer = Random.Range(0f, m_circleTargetInterval / 10f);
+
+
+            var envMan = EnvMan.instance;
+            if (Random.value > 0.2 || !envMan) return;
+            var text = string.Empty;
+            if (envMan.IsDay())
+            {
+                text = envMan.IsWet()
+                    ? profile.talksBadWeather_Day.Random()
+                    : profile.talksClearWeather_Day.Random();
             }
             else
             {
-                hammerMark.SetActive(false);
-                if (m_professionBehaviorTimer == null && HaveProfession())
-                {
-                    m_professionBehaviorTimer = new System.Timers.Timer(m_professionBehaviorInterval);
-                    m_professionBehaviorTimer.Elapsed += (sendered, args) =>
-                    {
-                        Debug("ProfessionBehavior timer Elapsed");
-                        inProfessionBehavior = true;
-                        m_professionBehaviorTimer.Stop();
-                        m_professionBehaviorTimer = null;
-                    };
-                    m_professionBehaviorTimer.Start();
-                    m_professionBehaviorTimer.Enabled = true;
-                }
-
-                m_aiStatus = $"Random movement";
-                IdleMovement(dt);
+                text = envMan.IsWet()
+                    ? profile.talksBadWeather_Night.Random()
+                    : profile.talksClearWeather_Night.Random();
             }
 
-            hammerMark.SetActive(inProfessionBehavior);
+            Chat.instance.SetNpcText(gameObject, Vector3.up * 1.5f, 20, 4, profile.name,
+                text.Localize(), false);
         }
+    }
+
+    private static bool IsTimeToWork()
+    {
+        var time = TimeUtils.GetCurrentTimeValue();
+        return IsTimeToWork(time);
+    }
+
+    private static bool IsDinnerTime()
+    {
+        var time = TimeUtils.GetCurrentTimeValue();
+        if (time == -1) return false;
+        return time > 12.5f && time < 14f;
+    }
+
+    private static bool IsTimeToWork(float time)
+    {
+        if (time == -1) return false;
+        return (time > 7.2f && time < 12.5f) || (time > 14f && time < 19f);
     }
 
     private bool HaveProfession() => profile.m_profession != NPC_Profession.None;
@@ -432,33 +426,28 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         sleepHouse.CloseAllDoors();
     }
 
-    private void UpdateProfessionBehavior(float dt)
+    private bool UpdateProfessionBehavior(float dt)
     {
-        if (profile.m_profession != NPC_Profession.None)
+        switch (profile.m_profession)
         {
-            inProfessionBehavior = true;
-            switch (profile.m_profession)
-            {
-                case NPC_Profession.Crafter:
-                    UpdateCrafter(dt);
-                    break;
-                case NPC_Profession.Builder:
-                    UpdateBuilder(dt);
-                    break;
-            }
+            case NPC_Profession.Crafter:
+                return UpdateCrafter(dt);
+            case NPC_Profession.Builder:
+                return UpdateBuilder(dt);
+            default:
+                return false;
         }
     }
 
-    private void UpdateBuilder(float dt)
+    private bool UpdateBuilder(float dt)
     {
-        if (!sleepHouse || !town) return;
+        if (!sleepHouse || !town) return false;
         if (!targetBuilding) targetBuilding = town.FindWornBuilding();
         if (!targetBuilding)
         {
-            inProfessionBehavior = false;
             m_aiStatus = "All buildings are okay";
             Debug($"{profile.name} {m_aiStatus}");
-            return;
+            return false;
         }
         else
         {
@@ -479,46 +468,56 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
                         Debug($"{profile.name} repared {buildingName}");
                         targetBuilding = null;
                         targetBuilding.Repair();
-                        inProfessionBehavior = false;
                         Chat.instance.SetNpcText(gameObject, Vector3.up * 1.5f, 20, 3, profile.name,
                             $"I repared a {targetBuilding.m_piece.m_name.Localize()}", false);
+                        return true;
+                    }
+                    else
+                    {
+                        m_aiStatus = $"Can't look at {targetBuilding.m_piece.m_name.Localize()}";
+                        return false;
                     }
                 }
                 else
                 {
                     m_aiStatus = $"Moving to {targetBuilding.GetPrefabName()}";
+                    return true;
                 }
             }
             else
             {
                 m_aiStatus = $"Can't reach {targetBuilding.GetPrefabName()}";
+                return false;
             }
         }
     }
 
-    private void UpdateCrafter(float dt)
+    [Description("False if can't")]
+    private bool UpdateCrafter(float dt)
     {
-        if (!inProfessionBehavior) return;
-        if (profile.itemsToCraft == null || profile.itemsToCraft.Count == 0) return;
-        var randomItemToCraft = profile.itemsToCraft.Random();
-        GoCraftItem(dt, randomItemToCraft);
+        if (inCrafting) return true;
+        if (profile.itemsToCraft == null || profile.itemsToCraft.Count == 0) return false;
+        if (randomItemToCraft == null || Random.value < 0.01) randomItemToCraft = profile.itemsToCraft.Random();
+        return GoCraftItem(dt, randomItemToCraft);
     }
 
-    private void GoCraftItem(float dt, CrafterItem crafterItem)
+    private bool GoCraftItem(float dt, CrafterItem crafterItem)
     {
-        if (!workHouse || crafterItem == null) return;
+        if (!workHouse || crafterItem == null) return false;
         if (!workHouse.HaveEmptySlot())
         {
             m_aiStatus = $"Don't have free space for crafting.";
-            inProfessionBehavior = false;
-            return;
+            m_aiStatusError = m_aiStatus;
+            inCrafting = false;
+            return false;
         }
 
         var recipe = ObjectDB.instance.GetRecipe(crafterItem.prefab.m_itemData);
         if (!recipe)
         {
             DebugError($"Can't find recipe {crafterItem.prefabName}");
-            return;
+            inCrafting = false;
+            return false;
         }
 
         m_aiStatus += $"\nGoing to craft {recipe.name}";
@@ -527,41 +526,66 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         {
             m_aiStatus += $"\nHave requirements for {recipe.name}";
 
-            var stationPos = craftingStation.transform.position;
-            if (FindPath(stationPos))
+            if (craftingStation)
             {
-                if (MoveTo(dt, stationPos, craftingStation.m_useDistance * 0.8f, false))
+                var stationPos = craftingStation.transform.position;
+                if (FindPath(stationPos))
                 {
-                    LookAt(stationPos);
-                    if (IsLookingAt(stationPos, 20f))
+                    if (MoveTo(dt, stationPos, craftingStation.m_useDistance * 0.8f, false))
                     {
-                        inProfessionBehavior = true;
-                        craftingStation.PokeInUse();
-                        human.HideHandItems();
-                        human.m_zanim.SetInt("crafting", craftingStation.m_useAnimation);
-                        StartCoroutine(CraftItem(dt, craftingStation, crafterItem, recipe));
+                        LookAt(stationPos);
+                        if (IsLookingAt(stationPos, 20f))
+                        {
+                            craftingStation.PokeInUse();
+                            human.HideHandItems();
+                            human.m_zanim.SetInt("crafting", craftingStation.m_useAnimation);
+                            StartCoroutine(CraftItem(dt, craftingStation, crafterItem, recipe));
+                            m_aiStatusError = string.Empty;
+                            return true;
+                        }
+                        else
+                        {
+                            m_aiStatus = $"Can't look at {craftingStation.m_name.Localize()}";
+                            m_aiStatusError = string.Empty;
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        m_aiStatus = $"Moving to crafting station {craftingStation.GetPrefabName()}";
+                        m_aiStatusError = string.Empty;
+                        return true;
                     }
                 }
                 else
                 {
-                    m_aiStatus = $"Moving to crafting station {craftingStation.GetPrefabName()}";
+                    m_aiStatus = $"Can't reach crafting station {craftingStation.GetPrefabName()}";
+                    m_aiStatusError = m_aiStatus;
+                    return false;
                 }
             }
             else
             {
-                m_aiStatus = $"Can't reach crafting station {craftingStation.GetPrefabName()}";
+                human.HideHandItems();
+                human.m_zanim.SetInt("crafting", 1);
+                StartCoroutine(CraftItem(dt, null, crafterItem, recipe));
+                m_aiStatusError = string.Empty;
+                return true;
             }
         }
         else
         {
-            inProfessionBehavior = false;
+            inCrafting = false;
             human.m_zanim.SetInt("crafting", 0);
             m_aiStatus = $"Don't have enough resources to craft {recipe.name}";
+            town.RegisterNPCRequest(new(RequestType.Item, profile.name, recipe.ToList()));
+            return false;
         }
     }
 
     private IEnumerator CraftItem(float dt, CraftingStation craftingStation, CrafterItem crafterItem, Recipe recipe)
     {
+        inCrafting = true;
         m_aiStatus = $"\nCrafting {recipe.name}...";
         foreach (var resource in recipe.m_resources)
         {
@@ -573,7 +597,10 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
         m_aiStatus += $"\nFinishing crafting {recipe.name}...";
         yield return new WaitForSeconds(2);
-        var itemDrop = Instantiate(recipe.m_item, craftingStation.transform.position, Quaternion.identity);
+        var pos = craftingStation
+            ? craftingStation.transform.position
+            : transform.position + transform.up + new Vector3(0, 1, 0);
+        var itemDrop = Instantiate(recipe.m_item, pos, Quaternion.identity);
         itemDrop.m_itemData.m_durability = itemDrop.m_itemData.GetMaxDurability();
         if (workHouse.AddItem(itemDrop))
         {
@@ -584,7 +611,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         }
 
         human.m_zanim.SetInt("crafting", 0);
-        inProfessionBehavior = false;
+        inCrafting = false;
     }
 
     private bool HaveRequirementsForRecipe(Recipe recipe, out CraftingStation station)
@@ -601,6 +628,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     private bool HaveItemsForRecipe(Recipe recipe)
     {
+        if (npcsNoCost.Value) return true;
         var inventory = workHouse.GetHouseInventory();
         foreach (var resource in recipe.m_resources)
         {
@@ -705,7 +733,6 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         if (m_consumeSearchTimer > m_consumeSearchInterval)
         {
             m_consumeSearchTimer = 0;
-            if (!IsHungry()) return false;
             FindFood();
         }
 
@@ -718,8 +745,6 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             if (MoveTo(dt, chestPos, 2, m_aiStatus == "Can't reach food house"))
             {
                 LookAt(chestPos);
-                //if (IsLookingAt(chestPos, 20f))
-                //{
                 m_onConsumedItem?.Invoke(m_currentConsumeItem);
                 human.m_consumeItemEffects?.Create(transform.position, Quaternion.identity);
                 m_animator.SetTrigger("eat");
@@ -728,19 +753,15 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
                 inventory.RemoveItem(m_currentConsumeItem.m_shared.m_name, 1);
                 m_currentConsumeItem = null;
                 foodHouse = null;
-                //}
-                // else
-                //{
-                //    m_aiStatus = $"Can't look at food container {m_containerToGrab.GetPrefabName()}";
-                //    return true;
-                // }
+
+
+                return true;
             }
             else
             {
                 m_aiStatus = "Moving to food house";
+                return true;
             }
-
-            return true;
         }
         else
         {
@@ -748,7 +769,6 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             m_aiStatus = "Can't reach food house";
             return false;
         }
-        //false means don't need to eat.
     }
 
     public void OnConsumedItem(ItemData item)
@@ -767,7 +787,9 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             transform.rotation = m_attachPoint.rotation;
             Rigidbody componentInParent = m_attachPoint.GetComponentInParent<Rigidbody>();
             m_body.useGravity = false;
-            m_body.velocity = componentInParent ? componentInParent.GetPointVelocity(transform.position) : Vector3.zero;
+            m_body.velocity = componentInParent
+                ? componentInParent.GetPointVelocity(transform.position)
+                : Vector3.zero;
             m_body.angularVelocity = Vector3.zero;
             human.m_maxAirAltitude = transform.position.y;
         }
@@ -808,7 +830,8 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         return (ZNet.instance.GetTime() - dateTime).TotalSeconds > m_eatDuration;
     }
 
-    public void ResetHungryTimer() => m_nview.GetZDO().Set(ZDOVars.s_tameLastFeeding, ZNet.instance.GetTime().Ticks);
+    public void ResetHungryTimer() =>
+        m_nview.GetZDO().Set(ZDOVars.s_tameLastFeeding, ZNet.instance.GetTime().Ticks);
 
     private void FindFood()
     {
@@ -835,24 +858,65 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         }
     }
 
-    public void UpdateSleep(float dt)
+    public bool UpdateSleep(float dt)
     {
-        if (!IsSleeping()) return;
-        if (EnvMan.instance.IsDay())
+        if (!sleepHouse || !town || !profile) return true;
+        if (IsTimeToWakeup() && IsSleeping())
         {
             Wakeup();
-            return;
+            return true;
         }
 
-        // if (m_wakeupRange > 0)
-        // {
-        //     var closestEnemy = FindClosestEnemy(m_character, transform.position, m_wakeupRange);
-        //     if (closestEnemy && !closestEnemy.InGhostMode() && !closestEnemy.IsDebugFlying())
-        //     {
-        //         Wakeup();
-        //         return;
-        //     }
-        // }
+        if (IsTimeToSleep() && !IsSleeping())
+        {
+            m_aiStatus = $"Going to sleep";
+            var bedPos = sleepHouse.GetBedPos(profile.name);
+            var hasBed = sleepHouse.HasBedFor(profile.name);
+            if (FindPath(bedPos))
+            {
+                if (MoveTo(dt, bedPos, 3, false))
+                {
+                    if (hasBed)
+                    {
+                        var bed = sleepHouse.GetBedFor(profile.name);
+                        LookAt(bedPos);
+                        Sleep();
+                        return true;
+                    }
+                    else
+                    {
+                        m_aiStatus = $"Need a bed";
+                        town.RegisterNPCRequest(new(RequestType.Bed, profile.name));
+                        m_aiStatusError = m_aiStatus;
+                        return true;
+                    }
+                }
+                else
+                {
+                    m_aiStatus = "Moving to bed";
+                    m_aiStatusError = string.Empty;
+                    return true;
+                }
+            }
+            else
+            {
+                m_aiStatus = "Can't reach bed";
+                m_aiStatusError = m_aiStatus;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsTimeToSleep()
+    {
+        return (TimeUtils.GetCurrentTimeValue() > 23 || TimeUtils.GetCurrentTimeValue() < 7);
+    }
+
+    private static bool IsTimeToWakeup()
+    {
+        return TimeUtils.GetCurrentTimeValue() > 7;
     }
 
     public new bool IsSleeping() => m_nview.IsValid() && m_nview.GetZDO().GetBool(ZDOVars.s_sleeping, m_sleeping);
@@ -970,7 +1034,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     public NPC_Profile GetSavedProfile()
     {
-        return TownDB.GetProfile(m_nview.GetZDO().GetString("ProfileName"));
+        return NPCsManager.GetNPCProfile(m_nview.GetZDO().GetString("ProfileName"));
     }
 
     public void SaveProfile(NPC_Profile profile)
@@ -983,6 +1047,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         var sb = new StringBuilder();
         sb.AppendLine($"{profile.name}:");
         //sb.AppendLine($"{(profile.m_profession == NPC_Profession.None ? "" : "Profession: " + profile.m_profession)}");
+        if (m_aiStatusError != string.Empty) sb.AppendLine($"Ai error: {m_aiStatusError}");
         sb.AppendLine($"Ai: {m_aiStatus}");
         sb.AppendLine($"Hungry: {IsHungry()}");
         sb.AppendLine($"Sleeping: {IsSleeping()}");
@@ -1015,5 +1080,11 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         }
 
         return false;
+    }
+
+    public void Emote(string emoteName)
+    {
+        Debug($"{profile.name} emote {emoteName}");
+        //TODO: Implement emote
     }
 }

@@ -16,7 +16,11 @@ public class Materials
     [HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.Awake)), HarmonyPostfix, HarmonyWrapSafe]
     public static void NPCsSystemFixMaterials()
     {
-        FixBundle(bundle);
+        FixSmt(bundle.LoadAsset<GameObject>("NPSHouseCrafter"));
+        FixSmt(bundle.LoadAsset<GameObject>("NPSHouseHotel"));
+        FixSmt(bundle.LoadAsset<GameObject>("NPSHouseWarehouse"));
+        FixSmt(bundle.LoadAsset<GameObject>("NPSPark"));
+        FixSmt(bundle.LoadAsset<GameObject>("PlayerNPS"));
     }
 
     private static void FixBundle(AssetBundle assetBundle)
@@ -25,21 +29,26 @@ public class Materials
         {
             foreach (var child in asset.GetComponentsInChildren<GameObject>())
             {
-                FixRenderers(child);
-                FixInstanceRenderer(child);
-                FixPiece(child);
-                FixWearNTear(child);
-                FixCharacter(child);
-                FixDestructible(child);
-                FixPickable(child);
-                FixContainer(child);
-                FixFireplace(child);
-                FixTerrainMod(child);
-                FixNPC(child);
-                FixTree(child);
-                FixDropOnDestroyed(child);
+                FixSmt(child);
             }
         }
+    }
+
+    private static void FixSmt(GameObject child)
+    {
+        FixRenderers(child);
+        FixInstanceRenderer(child);
+        FixPiece(child);
+        FixWearNTear(child);
+        FixCharacter(child);
+        FixDestructible(child);
+        FixPickable(child);
+        FixContainer(child);
+        FixFireplace(child);
+        FixTerrainMod(child);
+        FixNPC(child);
+        FixTree(child);
+        FixDropOnDestroyed(child);
     }
 
     private static void FixContainer(GameObject asset)

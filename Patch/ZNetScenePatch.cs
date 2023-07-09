@@ -21,7 +21,7 @@ public class ZNetScenePatch
             .GetComponentInChildren<NPC_House>();
         var NPSHouseHotel = PrefabManager.RegisterPrefab(bundle, "NPSHouseHotel").GetComponentInChildren<NPC_House>();
         var TestTown = PrefabManager.RegisterPrefab(bundle, "TestTown").GetComponentInChildren<NPC_Town>();
-        var profiles = TownDB.GetAllProfiles();
+        var profiles = NPCsManager.GetAllProfiles();
         foreach (var profile in profiles)
         {
             if (!string.IsNullOrEmpty(profile.prefabByName) && !string.IsNullOrWhiteSpace(profile.prefabByName))
@@ -48,20 +48,28 @@ public class ZNetScenePatch
             }
         }
 
-        NPSHouseWarehouse.FindAllChests();
-        NPSHouseWarehouse.AddItem("CookedDeerMeat", 40);
-        NPSHouseWarehouse.AddItem("CookedDeerMeat", 40);
-        NPSHouseWarehouse.AddItem("CookedMeat", 40);
-        NPSHouseWarehouse.AddItem("CookedMeat", 40);
-        NPSHouseWarehouse.AddItem("RawMeat", 25);
+        foreach (var container in NPSHouseWarehouse.GetComponentsInChildren<Container>())
+        {
+            NPSHouseWarehouse.AddChest(container);
+        }
 
-        NPSHouseWarehouse.AddItem("Bronze", 150);
-        NPSHouseWarehouse.AddItem("Iron", 150);
-        NPSHouseWarehouse.AddItem("Silver", 150);
-        NPSHouseWarehouse.AddItem("BoneFragments", 150);
-        NPSHouseWarehouse.AddItem("DeerHide", 150);
-        NPSHouseWarehouse.AddItem("TrollHide", 150);
-        NPSHouseWarehouse.AddItem("Feathers", 80);
-        NPSHouseWarehouse.AddItem("Wood", 200);
+        foreach (var toAddToHouse in NPCsManager.itemsToAddToHouses)
+        {
+            var housePrefab = ZNetScene.instance.GetPrefab(toAddToHouse.Item1);
+            if (!housePrefab)
+            {
+                DebugError($"Can't find a house with name {toAddToHouse.Item1}. Register it with PrefabManager.");
+                continue;
+            }
+
+            var npcHouse = housePrefab.GetComponentInChildren<NPC_House>();
+            if (!npcHouse)
+            {
+                DebugError($"Can't find a house component in house with name {toAddToHouse.Item1}.");
+                continue;
+            }
+
+            npcHouse.AddDefaultItem(toAddToHouse.Item2, toAddToHouse.Item3);
+        }
     }
 }
