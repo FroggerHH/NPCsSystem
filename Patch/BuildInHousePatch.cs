@@ -24,7 +24,7 @@ public class BuildInHousePatch
     [HarmonyPatch(typeof(Piece), nameof(Piece.OnDestroy)), HarmonyPrefix, HarmonyWrapSafe]
     public static void PieceDestroy(Piece __instance)
     {
-        if (!__instance.IsPlacedByPlayer()) return;
+        if (!__instance.IsPlacedByPlayer() || Game.instance.IsShuttingDown()) return;
         var house = NPC_House.FindHouse(__instance.transform.position);
         if (!house) return;
 

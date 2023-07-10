@@ -233,7 +233,7 @@ namespace NPCsSystem
                     if (beds.ContainsValue(bed) || beds.ContainsKey(npcName)) continue;
 
                     beds.Add(npcName, bed);
-                    bed.SetOwner(88, npcName);
+                    bed.m_nview.GetZDO().Set(ZDOVars.s_ownerName, npcName);
                     continue;
                 }
             }
@@ -375,7 +375,7 @@ namespace NPCsSystem
         internal bool IsEntertainmentHouse() => (houseType == Entertainment ||
                                                  houseType == EntertainmentAndProfessionHouse || houseType == All);
 
-        internal bool IsFoodHouse() => (houseType == Warehouse || houseType == WarehouseAndProfessionHouse ||
+        internal bool IsWarehouse() => (houseType == Warehouse || houseType == WarehouseAndProfessionHouse ||
                                         houseType == HousingAndWarehouse || houseType == All)
                                        && chests.Count > 0;
 
@@ -410,7 +410,7 @@ namespace NPCsSystem
             return false;
         }
 
-        public List<ItemData> GetItemsByType(ItemType type, out Container container)
+        public List<ItemData> GetItemsByType(ItemType type, out Container container, bool checkIsContainerInUse = false)
         {
             container = null;
             var items = new List<ItemData>();
@@ -420,8 +420,9 @@ namespace NPCsSystem
                 {
                     if (item.m_shared.m_itemType == type)
                     {
-                        container = chest;
                         items.Add(item);
+                        if (checkIsContainerInUse && chest.m_inUse) continue;
+                        container = chest;
                     }
                 }
 
@@ -448,7 +449,7 @@ namespace NPCsSystem
         {
             foreach (var chest in chests)
             {
-                if (chest.GetInventory().AddItem(itemData.gameObject, 1))
+                if (chest.GetInventory().AddItem(itemData.m_itemData))
                 {
                     return true;
                 }
@@ -522,6 +523,34 @@ namespace NPCsSystem
             }
         }
 
-        public bool IsAvailable() => currentnpcs.Count < maxNPCs;
+        public bool IsAvailable()
+        {
+            if (IsProfessionHouse())
+            {
+                int i = 0;
+                foreach (var npc in NPC_Brain.allNPCs)
+                {
+                    if (npc.workHouse == this) i++;
+                }
+
+                return i < maxNPCs;
+            }
+            else
+            {
+                return currentnpcs.Count <= maxNPCs;
+            }
+        }
+
+        public int GetItemsCountInHouse(string item)
+        {
+            int result = 0;
+            var list = GetHouseInventory();
+            list.ForEach(x =>
+            {
+                if (x.m_shared.m_name == item) result++;
+            });
+
+            return result;
+        }
     }
 }

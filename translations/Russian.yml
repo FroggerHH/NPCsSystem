@@ -42,3 +42,4 @@ npcTalk_BadWeather_Night10: "Приветствую, неуклонный вои
 requests: "Запросы"
 request_asksFor: "просит о"
 noRequests: "Пока у жителей нет запросов"
+piece_requestBoard: "Доска запросов"

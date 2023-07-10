@@ -48,7 +48,7 @@ public class ZNetScenePatch
             }
         }
 
-        foreach (var container in NPSHouseWarehouse.GetComponentsInChildren<Container>())
+        foreach (var container in NPSHouseWarehouse.transform.parent.GetComponentsInChildren<Container>())
         {
             NPSHouseWarehouse.AddChest(container);
         }
@@ -69,7 +69,14 @@ public class ZNetScenePatch
                 continue;
             }
 
-            npcHouse.AddDefaultItem(toAddToHouse.Item2, toAddToHouse.Item3);
+            if (!npcHouse.AddDefaultItem(toAddToHouse.Item2, toAddToHouse.Item3))
+            {
+                DebugError($"Can't add a default item {toAddToHouse.Item2} to a house with name {toAddToHouse.Item1}");
+            }
+            else
+            {
+                Debug($"item {toAddToHouse.Item2} added as default to a {toAddToHouse.Item1}");
+            }
         }
     }
 }

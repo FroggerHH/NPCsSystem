@@ -8,7 +8,7 @@ public class Request
 {
     public RequestType requestType;
     public string npcName;
-    public List<(ItemDrop.ItemData.SharedData, int)> items = null;
+    public List<(ItemDrop.ItemData.SharedData, int)> items = new();
     public string thingName;
 
     public Request(RequestType requestType, string npcName, List<(ItemDrop.ItemData.SharedData, int)> items)

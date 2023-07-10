@@ -42,3 +42,4 @@ npcTalk_BadWeather_Night10: "Greetings, steadfast warrior! Embrace the rain's ch
 requests: "Requests"
 request_asksFor: "asks for"
 noRequests: "So far, residents have no requests"
+piece_requestBoard: "Request board"

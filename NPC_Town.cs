@@ -153,6 +153,34 @@ namespace NPCsSystem
             return returnHouses.Find(x => x.IsAvailable());
         }
 
+        public NPC_House FindWarehouse(List<(ItemDrop.ItemData.SharedData, int)> items)
+        {
+            List<NPC_House> returnHouses = new();
+
+            foreach (var house in houses)
+            {
+                var itemsCheck = true;
+                if (house.IsWarehouse())
+                {
+                    var houseInventory = house.GetHouseInventory();
+                    foreach (var item in items)
+                    {
+                        if (!houseInventory.Exists(x =>
+                                x.m_shared.m_name == item.Item1.m_name && x.m_stack >= item.Item2))
+                        {
+                            itemsCheck = false;
+                            continue;
+                        }
+                    }
+
+                    if (!itemsCheck) continue;
+                    returnHouses.Add(house);
+                }
+            }
+
+            return returnHouses.FirstOrDefault();
+        }
+
         internal List<NPC_House> FindFoodHouses()
         {
             List<NPC_House> returnHouses = new();
@@ -160,7 +188,7 @@ namespace NPCsSystem
             {
                 var ht = house.GetHouseType();
                 if (ht == None) continue;
-                if (house.IsFoodHouse() && house.HaveFood())
+                if (house.IsWarehouse() && house.HaveFood())
                 {
                     returnHouses.Add(house);
                 }
@@ -265,23 +293,37 @@ namespace NPCsSystem
 
         public bool RegisterNPCRequest(Request request)
         {
-            if (requests.Contains(request)) return false;
+            if (HaveRequest(request)) return false;
             requests.Add(request);
             return true;
+        }
+
+        public bool HaveRequest(Request request)
+        {
+            return requests.Any(x =>
+                x.npcName == request.npcName && x.requestType == request.requestType &&
+                x.thingName == request.thingName);
         }
 
         public List<Request> GetRequests() => requests;
 
         public void CompleteRequest(Request request)
         {
-            if (!requests.Contains(request)) return;
-            requests.Remove(request);
+            if (!HaveRequest(request)) return;
+            requests.Remove(FindRequest(request));
             onCompleteRequest?.Invoke(request);
             var npc = GetNPC(request.npcName);
             if (npc)
             {
                 npc.Emote("CompleteRequest");
             }
+        }
+
+        private Request FindRequest(Request request)
+        {
+            return requests.Find(x =>
+                x.npcName == request.npcName && x.requestType == request.requestType &&
+                x.thingName == request.thingName && x.items == request.items);
         }
 
         private NPC_Brain GetNPC(string npcName)

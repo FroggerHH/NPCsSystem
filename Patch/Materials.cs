@@ -20,7 +20,11 @@ public class Materials
         FixSmt(bundle.LoadAsset<GameObject>("NPSHouseHotel"));
         FixSmt(bundle.LoadAsset<GameObject>("NPSHouseWarehouse"));
         FixSmt(bundle.LoadAsset<GameObject>("NPSPark"));
-        FixSmt(bundle.LoadAsset<GameObject>("PlayerNPS"));
+        var npc = bundle.LoadAsset<GameObject>("PlayerNPS");
+        FixSmt(npc);
+        Utils.FindChild(npc.transform, "HammerMark").GetComponent<Renderer>().sharedMaterial =
+            Utils.FindChild(ZNetScene.instance.GetPrefab("piece_workbench").transform, "Particle System)")
+                .GetComponent<Renderer>().sharedMaterial;
     }
 
     private static void FixBundle(AssetBundle assetBundle)
