@@ -17,10 +17,6 @@ public class ZNetScenePatch
     [HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.Awake)), HarmonyPostfix, HarmonyWrapSafe]
     public static void Patch(ZNetScene __instance)
     {
-        var NPSHouseWarehouse = PrefabManager.RegisterPrefab(bundle, "NPSHouseWarehouse")
-            .GetComponentInChildren<NPC_House>();
-        var NPSHouseHotel = PrefabManager.RegisterPrefab(bundle, "NPSHouseHotel").GetComponentInChildren<NPC_House>();
-        var TestTown = PrefabManager.RegisterPrefab(bundle, "TestTown").GetComponentInChildren<NPC_Town>();
         var profiles = NPCsManager.GetAllProfiles();
         foreach (var profile in profiles)
         {
@@ -29,54 +25,43 @@ public class ZNetScenePatch
                 profile.m_prefab = ZNetScene.instance.GetPrefab(profile.prefabByName);
             }
 
-            foreach (var item in profile.itemsToBuy)
-            {
-                if (!string.IsNullOrEmpty(item.prefabName) && !string.IsNullOrWhiteSpace(item.prefabName))
-                    item.prefab = ZNetScene.instance.GetPrefab(item.prefabName).GetComponent<ItemDrop>();
-            }
-
-            foreach (var item in profile.itemsToSell)
-            {
-                if (!string.IsNullOrEmpty(item.prefabName) && !string.IsNullOrWhiteSpace(item.prefabName))
-                    item.prefab = ZNetScene.instance.GetPrefab(item.prefabName).GetComponent<ItemDrop>();
-            }
-
             foreach (var item in profile.itemsToCraft)
             {
                 if (!string.IsNullOrEmpty(item.prefabName) && !string.IsNullOrWhiteSpace(item.prefabName))
                     item.prefab = ZNetScene.instance.GetPrefab(item.prefabName).GetComponent<ItemDrop>();
+
+                item.recipe = ObjectDB.instance.GetRecipe(item.prefab.m_itemData);
             }
         }
 
-        foreach (var container in NPSHouseWarehouse.transform.parent.GetComponentsInChildren<Container>())
+        foreach (var item in TradeItem.all)
         {
-            NPSHouseWarehouse.AddChest(container);
-        }
-
-        foreach (var toAddToHouse in NPCsManager.itemsToAddToHouses)
-        {
-            var housePrefab = ZNetScene.instance.GetPrefab(toAddToHouse.Item1);
-            if (!housePrefab)
+            if (!string.IsNullOrEmpty(item.prefabName) && !string.IsNullOrWhiteSpace(item.prefabName))
             {
-                DebugError($"Can't find a house with name {toAddToHouse.Item1}. Register it with PrefabManager.");
-                continue;
+                var prefab = ZNetScene.instance.GetPrefab(item.prefabName);
+                if (!prefab)
+                {
+                    DebugError($"Can't find item {item.prefabName} for trade {item}");
+                    continue;
+                }
+                item.prefab = prefab.GetComponent<ItemDrop>();
             }
+            if (!string.IsNullOrEmpty(item.moneyItemName) && !string.IsNullOrWhiteSpace(item.moneyItemName))
+                item.moneyItem = ZNetScene.instance.GetPrefab(item.moneyItemName).GetComponent<ItemDrop>();
 
-            var npcHouse = housePrefab.GetComponentInChildren<NPC_House>();
-            if (!npcHouse)
+            foreach (var npcName in item.npcNames)
             {
-                DebugError($"Can't find a house component in house with name {toAddToHouse.Item1}.");
-                continue;
-            }
+                var npc = NPCsManager.GetNPCProfile(npcName);
+                if (!npc)
+                {
+                    DebugError($"Can't find npc {npcName}");
+                    continue;
+                }
 
-            if (!npcHouse.AddDefaultItem(toAddToHouse.Item2, toAddToHouse.Item3))
-            {
-                DebugError($"Can't add a default item {toAddToHouse.Item2} to a house with name {toAddToHouse.Item1}");
-            }
-            else
-            {
-                Debug($"item {toAddToHouse.Item2} added as default to a {toAddToHouse.Item1}");
+                item.npc = npc;
+                npc.tradeItems.Add(item);
             }
         }
+        TraderPatch.coinPrefab = ZNetScene.instance.GetPrefab("Coins").GetComponent<ItemDrop>();
     }
 }

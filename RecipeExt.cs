@@ -19,4 +19,15 @@ public static class RecipeExt
 
         return result;
     }
+
+    public static List<(string, int)> ToListStr(this Recipe recipe)
+    {
+        var result = new List<(string, int)>();
+        foreach (var resource in recipe.m_resources)
+        {
+            result.Add((resource.m_resItem.name, resource.m_amount));
+        }
+
+        return result;
+    }
 }

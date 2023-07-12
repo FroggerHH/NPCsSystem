@@ -25,21 +25,18 @@ namespace NPCsSystem
         private List<Container> chests = new List<Container>();
         private List<Door> doors = new List<Door>();
         private List<Sign> signs = new List<Sign>();
+        private List<Sign> timeSigns = new List<Sign>();
         internal List<NPC_Brain> currentnpcs = new List<NPC_Brain>();
 
         public NPC_Profession professionForProfessionHouse;
         public int maxNPCs = 1;
         [SerializeField] private float radius = 10;
         [SerializeField] private HouseType houseType = HouseType.Housing;
+        private List<(string, int)> deafaultItems = new();
         private RequestBoard requestBoard;
 
         public HouseType GetHouseType() => houseType;
         public float GetRadius() => radius;
-
-        private void Reset()
-        {
-            SetReferenses();
-        }
 
         private void SetReferenses()
         {
@@ -91,6 +88,12 @@ namespace NPCsSystem
         {
             allHouses.Add(this);
             SetReferenses();
+            foreach (var tuple in NPCsManager.itemsToAddToHouses)
+            {
+                if (!name.Contains(tuple.Item1)) continue;
+                deafaultItems.Add((tuple.Item2, tuple.Item3));
+            }
+
             StartCoroutine(RegisterHouse());
         }
 
@@ -157,9 +160,40 @@ namespace NPCsSystem
                 }
             }
 
-            DistributeBeds();
+            if (!m_view.GetZDO().GetBool(ZDOVars.s_addedDefaultItems, false))
+            {
+                foreach (var tuple in deafaultItems)
+                {
+                    AddItem(tuple.Item1, tuple.Item2);
+                }
 
+                m_view.GetZDO().Set(ZDOVars.s_addedDefaultItems, true);
+            }
+
+            if (houseType == TownHall)
+            {
+                foreach (var sign in signs)
+                {
+                    timeSigns.Add(sign);
+                }
+            }
+
+            InvokeRepeating(nameof(UpdateTimeSigns), 2, 2);
+            DistributeBeds();
             Load();
+        }
+
+        void UpdateTimeSigns()
+        {
+            foreach (var sign in timeSigns)
+            {
+                var dinner = NPC_Brain.IsTimeToDinner();
+                var work = NPC_Brain.IsTimeToWork();
+                var chill = NPC_Brain.IsTimeToChill();
+                if (dinner) sign.SetText("$npc_timeToDinner".Localize());
+                if (work) sign.SetText("$npc_timeToWork".Localize());
+                if (chill) sign.SetText("$npc_timeToChill".Localize());
+            }
         }
 
         public static NPC_House FindHouse(Vector3 position)
@@ -222,8 +256,12 @@ namespace NPCsSystem
 
         private void DistributeBeds()
         {
-            if (currentnpcs.Count == 0) return;
             beds.Clear();
+            foreach (var bed in bedObjs)
+            {
+                bed.SetOwner(0, string.Empty);
+            }
+
             foreach (var npc in currentnpcs)
             {
                 var npcName = npc.profile.name;
@@ -238,15 +276,14 @@ namespace NPCsSystem
                 }
             }
 
-
-            foreach (var request in town.GetRequests())
-            {
-                if (request.requestType != RequestType.Bed) continue;
-                if (HasBedFor(request.npcName))
-                {
-                    town.CompleteRequest(request);
-                }
-            }
+            // foreach (var request in town.GetRequests())
+            // {
+            //     if (request.requestType != RequestType.Bed) continue;
+            //     if (HasBedFor(request.npcName))
+            //     {
+            //         town.CompleteRequest(request);
+            //     }
+            // }
         }
 
         public void AddCraftingStation(CraftingStation craftingStatione)
@@ -333,7 +370,7 @@ namespace NPCsSystem
 
         private void Load()
         {
-            string save = m_view.GetZDO().GetString("save");
+            string save = GetSaveData();
             if (string.IsNullOrEmpty(save)) return;
             var savedProfiles = JSON.ToObject<string[]>(save);
             if (savedProfiles == null || savedProfiles.Length == 0) return;
@@ -471,31 +508,23 @@ namespace NPCsSystem
 
         public bool AddItem(string prefabName, int count = 1)
         {
-            foreach (var chest in chests)
+            List<Container> checkedChests = new();
+
+            while (checkedChests.Count != chests.Count)
             {
+                var chest = chests.Random();
+                checkedChests.Add(chest);
+                if (!chest.m_nview.IsOwner()) continue;
+
                 if (chest.GetInventory().AddItem(ZNetScene.instance.GetPrefab(prefabName), count))
                     return true;
             }
-
-            return false;
-        }
-
-        public bool AddDefaultItem(string prefabName, int count = 1)
-        {
-            foreach (var chest in chests)
-            {
-                var dropData = new DropTable.DropData()
-                {
-                    m_item = ZNetScene.instance.GetPrefab(prefabName),
-                    m_stackMin = count,
-                    m_stackMax = count
-                };
-                if (chest.m_defaultItems.m_drops.Count < chest.m_width * chest.m_height)
-                {
-                    chest.m_defaultItems.m_drops.Add(dropData);
-                    return true;
-                }
-            }
+            // foreach (var chest in chests)
+            // {
+            //     if (!chest.m_nview.IsOwner()) continue;
+            //     if (chest.GetInventory().AddItem(ZNetScene.instance.GetPrefab(prefabName), count))
+            //         return true;
+            // }
 
             return false;
         }
@@ -537,7 +566,7 @@ namespace NPCsSystem
             }
             else
             {
-                return currentnpcs.Count <= maxNPCs;
+                return currentnpcs.Count < maxNPCs;
             }
         }
 
@@ -552,5 +581,7 @@ namespace NPCsSystem
 
             return result;
         }
+
+        private string GetSaveData() => m_view.GetZDO().GetString("save");
     }
 }

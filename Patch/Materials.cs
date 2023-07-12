@@ -23,7 +23,7 @@ public class Materials
         var npc = bundle.LoadAsset<GameObject>("PlayerNPS");
         FixSmt(npc);
         Utils.FindChild(npc.transform, "HammerMark").GetComponent<Renderer>().sharedMaterial =
-            Utils.FindChild(ZNetScene.instance.GetPrefab("piece_workbench").transform, "Particle System)")
+            Utils.FindChild(ZNetScene.instance.GetPrefab("piece_workbench").transform, "Particle System")
                 .GetComponent<Renderer>().sharedMaterial;
     }
 
@@ -41,7 +41,6 @@ public class Materials
     private static void FixSmt(GameObject child)
     {
         FixRenderers(child);
-        FixInstanceRenderer(child);
         FixPiece(child);
         FixWearNTear(child);
         FixCharacter(child);
@@ -49,7 +48,6 @@ public class Materials
         FixPickable(child);
         FixContainer(child);
         FixFireplace(child);
-        FixTerrainMod(child);
         FixNPC(child);
         FixTree(child);
         FixDropOnDestroyed(child);
@@ -57,55 +55,64 @@ public class Materials
 
     private static void FixContainer(GameObject asset)
     {
-        var container = asset.GetComponent<Container>();
-        if (container != null)
+        var all = asset.GetComponentsInChildren<Container>();
+        if (all != null && all.Length > 0)
         {
-            FixEffect(container.m_openEffects, asset.name);
-            FixEffect(container.m_closeEffects, asset.name);
+            foreach (var obj in all)
+            {
+                FixEffect(obj.m_openEffects, obj.name);
+                FixEffect(obj.m_closeEffects, obj.name);
+            }
         }
     }
 
     private static void FixFireplace(GameObject asset)
     {
-        var fireplace = asset.GetComponent<Fireplace>();
-        if (fireplace != null)
+        var fireplaces = asset.GetComponentsInChildren<Fireplace>();
+        if (fireplaces != null && fireplaces.Length > 0)
         {
-            FixEffect(fireplace.m_fuelAddedEffects, asset.name);
+            foreach (var fireplace in fireplaces)
+            {
+                FixEffect(fireplace.m_fuelAddedEffects, asset.name);
+            }
         }
     }
 
     private static void FixPickable(GameObject asset)
     {
-        var pickable = asset.GetComponent<Pickable>();
-        if (pickable != null)
+        var pickable = asset.GetComponentsInChildren<Pickable>();
+        if (pickable != null && pickable.Length > 0)
         {
-            var prefab = ZNetScene.instance.GetPrefab(asset.GetPrefabName());
-            if (prefab)
+            foreach (var pickable1 in pickable)
             {
-                var pickableOrig = prefab.GetComponent<Pickable>();
-                pickable.m_itemPrefab = pickableOrig.m_itemPrefab;
-                pickable.m_amount = pickableOrig.m_amount;
-                pickable.m_extraDrops = pickableOrig.m_extraDrops;
-                pickable.m_overrideName = pickableOrig.m_overrideName;
-                pickable.m_respawnTimeMinutes = pickableOrig.m_respawnTimeMinutes;
-                pickable.m_spawnOffset = pickableOrig.m_spawnOffset;
-                pickable.m_pickEffector = pickableOrig.m_pickEffector;
-                pickable.m_pickEffectAtSpawnPoint = pickableOrig.m_pickEffectAtSpawnPoint;
-                pickable.m_useInteractAnimation = pickableOrig.m_useInteractAnimation;
-                pickable.m_tarPreventsPicking = pickableOrig.m_tarPreventsPicking;
-                pickable.m_aggravateRange = pickableOrig.m_aggravateRange;
+                var prefab = ZNetScene.instance.GetPrefab(pickable1.GetPrefabName());
+                if (prefab)
+                {
+                    var pickableOrig = prefab.GetComponent<Pickable>();
+                    pickable1.m_itemPrefab = pickableOrig.m_itemPrefab;
+                    pickable1.m_amount = pickableOrig.m_amount;
+                    pickable1.m_extraDrops = pickableOrig.m_extraDrops;
+                    pickable1.m_overrideName = pickableOrig.m_overrideName;
+                    pickable1.m_respawnTimeMinutes = pickableOrig.m_respawnTimeMinutes;
+                    pickable1.m_spawnOffset = pickableOrig.m_spawnOffset;
+                    pickable1.m_pickEffector = pickableOrig.m_pickEffector;
+                    pickable1.m_pickEffectAtSpawnPoint = pickableOrig.m_pickEffectAtSpawnPoint;
+                    pickable1.m_useInteractAnimation = pickableOrig.m_useInteractAnimation;
+                    pickable1.m_tarPreventsPicking = pickableOrig.m_tarPreventsPicking;
+                    pickable1.m_aggravateRange = pickableOrig.m_aggravateRange;
+                }
             }
         }
     }
 
     private static void FixDestructible(GameObject asset)
     {
-        var destructible = asset.GetComponent<Destructible>();
-        if (destructible != null)
+        var destructibles = asset.GetComponentsInChildren<Destructible>();
+        if (destructibles != null && destructibles.Length > 0)
         {
-            var prefab = ZNetScene.instance.GetPrefab(asset.GetPrefabName());
-            if (prefab)
+            foreach (var destructible in destructibles)
             {
+                var prefab = ZNetScene.instance.GetPrefab(destructible.GetPrefabName());
                 var destructibleOrig = prefab.GetComponent<Destructible>();
                 destructible.m_destroyedEffect = destructibleOrig.m_destroyedEffect;
                 destructible.m_hitEffect = destructibleOrig.m_hitEffect;
@@ -116,51 +123,52 @@ public class Materials
 
     private static void FixDropOnDestroyed(GameObject asset)
     {
-        var dropOnDestroyed = asset.GetComponent<DropOnDestroyed>();
-        if (dropOnDestroyed != null)
+        var all = asset.GetComponentsInChildren<DropOnDestroyed>();
+        if (all != null && all.Length > 0)
         {
-            var prefab = ZNetScene.instance.GetPrefab(asset.GetPrefabName());
-            if (prefab)
+            foreach (var obj in all)
             {
-                var dropOnDestroyedOrig = prefab.GetComponent<DropOnDestroyed>();
-                dropOnDestroyed.m_dropWhenDestroyed = dropOnDestroyedOrig.m_dropWhenDestroyed;
+                var orig = ZNetScene.instance.GetPrefab(obj.GetPrefabName()).GetComponent<DropOnDestroyed>();
+                obj.m_dropWhenDestroyed = orig.m_dropWhenDestroyed;
             }
         }
     }
 
     private static void FixTree(GameObject asset)
     {
-        var treeBase = asset.GetComponent<TreeBase>();
-        if (treeBase != null)
+        var all = asset.GetComponentsInChildren<TreeBase>();
+        if (all != null && all.Length > 0)
         {
-            var prefab = ZNetScene.instance.GetPrefab(asset.GetPrefabName());
-            if (prefab)
+            foreach (var obj in all)
             {
-                var treeBaseOrig = prefab.GetComponent<TreeBase>();
-                treeBase.m_destroyedEffect = treeBaseOrig.m_destroyedEffect;
-                treeBase.m_hitEffect = treeBaseOrig.m_hitEffect;
-                treeBase.m_respawnEffect = treeBaseOrig.m_respawnEffect;
-                treeBase.m_stubPrefab = treeBaseOrig.m_stubPrefab;
-                treeBase.m_logPrefab = treeBaseOrig.m_logPrefab;
-                treeBase.m_dropWhenDestroyed = treeBaseOrig.m_dropWhenDestroyed;
+                var orig = ZNetScene.instance.GetPrefab(obj.GetPrefabName()).GetComponent<TreeBase>();
+                obj.m_destroyedEffect = orig.m_destroyedEffect;
+                obj.m_hitEffect = orig.m_hitEffect;
+                obj.m_respawnEffect = orig.m_respawnEffect;
+                obj.m_stubPrefab = orig.m_stubPrefab;
+                obj.m_logPrefab = orig.m_logPrefab;
+                obj.m_dropWhenDestroyed = orig.m_dropWhenDestroyed;
             }
         }
     }
 
     internal static void FixCharacter(GameObject asset)
     {
-        var character = asset.GetComponent<Character>();
-        if (character != null)
+        var all = asset.GetComponentsInChildren<Character>();
+        if (all != null && all.Length > 0)
         {
-            FixEffect(character.m_deathEffects, asset.name);
-            FixEffect(character.m_hitEffects, asset.name);
-            FixEffect(character.m_jumpEffects, asset.name);
-            FixEffect(character.m_slideEffects, asset.name);
-            FixEffect(character.m_tarEffects, asset.name);
-            FixEffect(character.m_waterEffects, asset.name);
-            FixEffect(character.m_backstabHitEffects, asset.name);
-            FixEffect(character.m_critHitEffects, asset.name);
-            FixEffect(character.m_flyingContinuousEffect, asset.name);
+            foreach (var obj in all)
+            {
+                FixEffect(obj.m_deathEffects, obj.name);
+                FixEffect(obj.m_hitEffects, obj.name);
+                FixEffect(obj.m_jumpEffects, obj.name);
+                FixEffect(obj.m_slideEffects, obj.name);
+                FixEffect(obj.m_tarEffects, obj.name);
+                FixEffect(obj.m_waterEffects, obj.name);
+                FixEffect(obj.m_backstabHitEffects, obj.name);
+                FixEffect(obj.m_critHitEffects, obj.name);
+                FixEffect(obj.m_flyingContinuousEffect, obj.name);
+            }
         }
     }
 
@@ -177,19 +185,29 @@ public class Materials
 
     internal static void FixWearNTear(GameObject asset)
     {
-        var wearNTear = asset.GetComponent<WearNTear>();
-        if (wearNTear != null)
+        var all = asset.GetComponentsInChildren<WearNTear>();
+        if (all != null && all.Length > 0)
         {
-            FixEffect(wearNTear.m_destroyedEffect, asset.name);
-            FixEffect(wearNTear.m_hitEffect, asset.name);
-            FixEffect(wearNTear.m_switchEffect, asset.name);
+            foreach (var obj in all)
+            {
+                var orig = ZNetScene.instance.GetPrefab(obj.GetPrefabName()).GetComponent<WearNTear>();
+                FixEffect(obj.m_destroyedEffect, orig.name);
+                FixEffect(obj.m_hitEffect, orig.name);
+                FixEffect(obj.m_switchEffect, orig.name);
+            }
         }
     }
 
     internal static void FixPiece(GameObject asset)
     {
-        var piece = asset.GetComponent<Piece>();
-        FixPiece(piece);
+        var all = asset.GetComponentsInChildren<Piece>();
+        if (all != null && all.Length > 0)
+        {
+            foreach (var obj in all)
+            {
+                FixPiece(obj);
+            }
+        }
     }
 
     internal static void FixPiece(Piece piece)
@@ -226,40 +244,6 @@ public class Materials
                     craftingStation.m_craftItemDoneEffects = craftingStationOrig.m_craftItemDoneEffects;
                     craftingStation.m_repairItemDoneEffects = craftingStationOrig.m_repairItemDoneEffects;
                 }
-            }
-        }
-    }
-
-    private static void FixTerrainMod(GameObject asset)
-    {
-        var terrainOp = asset.GetComponent<TerrainOp>();
-        var TerrainModifier = asset.GetComponent<TerrainModifier>();
-        if (terrainOp != null)
-        {
-            FixEffect(terrainOp.m_onPlacedEffect, asset.name);
-        }
-
-        if (TerrainModifier != null)
-        {
-            FixEffect(TerrainModifier.m_onPlacedEffect, asset.name);
-        }
-    }
-
-    private static void FixInstanceRenderer(GameObject asset)
-    {
-        var instanceRenderers = asset.GetComponentsInChildren<InstanceRenderer>();
-        if (instanceRenderers != null && instanceRenderers.Length > 0)
-        {
-            foreach (InstanceRenderer renderer in instanceRenderers)
-            {
-                if (!renderer) continue;
-                if (!renderer.m_material)
-                {
-                    DebugError($"No material found for InstanceRenderer {renderer.name}", true);
-                    continue;
-                }
-
-                renderer.m_material.shader = Shader.Find(renderer.m_material.shader.name);
             }
         }
     }

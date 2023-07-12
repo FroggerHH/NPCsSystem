@@ -21,4 +21,14 @@ public static class InventoryExt
 
         return true;
     }
+
+    public static bool GiveIfNotHave(this Inventory inventory, string itenName)
+    {
+        var item = ObjectDB.instance.GetItemPrefab(itenName)?.GetComponent<ItemDrop>();
+        if (!item) return false;
+        if (inventory.ContainsItemByName(item.m_itemData.m_shared.m_name)) return false;
+        inventory.AddItem(item.gameObject, 1);
+
+        return true;
+    }
 }

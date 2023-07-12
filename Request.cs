@@ -6,39 +6,32 @@ namespace NPCsSystem;
 [Serializable]
 public class Request
 {
+    //private static int ID_counter = 0;
+
+    //public int ID;
     public RequestType requestType;
     public string npcName;
-    public List<(ItemDrop.ItemData.SharedData, int)> items = new();
+    public Dictionary<string, int> items = new();
     public string thingName;
 
-    public Request(RequestType requestType, string npcName, List<(ItemDrop.ItemData.SharedData, int)> items)
+    public Request(RequestType requestType, string npcName, Dictionary<string, int> items = null,
+        string thingName = "")
     {
         this.requestType = requestType;
         this.npcName = npcName;
-        this.items = items;
+        this.items = items == null ? new() : items;
         this.thingName = thingName;
+        //ID = ID_counter;
+        //ID_counter++;
     }
 
-    public Request(RequestType requestType, string npcName, List<(ItemDrop.ItemData.SharedData, int)> items,
-        string thingName)
+    public override string ToString()
     {
-        this.requestType = requestType;
-        this.npcName = npcName;
-        this.items = items;
-        this.thingName = thingName;
-    }
-
-    public Request(RequestType requestType, string npcName, string thingName)
-    {
-        this.requestType = requestType;
-        this.npcName = npcName;
-        this.thingName = thingName;
-    }
-
-    public Request(RequestType requestType, string npcName)
-    {
-        this.requestType = requestType;
-        this.npcName = npcName;
-        this.thingName = thingName;
+        var result = $"" +
+                     //$"ID: {ID}, " +
+                     $"RequestType: {requestType}, " +
+                     $"NpcName: {npcName}";
+        if (!string.IsNullOrEmpty(thingName)) result += $", ThingName: {thingName}";
+        return result;
     }
 }

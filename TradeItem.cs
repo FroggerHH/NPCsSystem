@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace NPCsSystem
@@ -7,55 +8,46 @@ namespace NPCsSystem
     [Serializable, HideInInspector]
     public class TradeItem
     {
-        [HideInInspector] internal ItemDrop prefab;
-        public string prefabName;
-        public int m_priceForItem = 100;
-        public string m_requiredGlobalKey;
-        public int lovePoints = 1;
+        public static List<TradeItem> all = new();
 
+        internal NPC_Profile npc;
+        internal ItemDrop prefab;
+        internal ItemDrop moneyItem;
+        internal List<string> npcNames;
+        internal string prefabName;
+        internal string moneyItemName;
+        internal int price = 100;
+        internal string m_requiredGlobalKey;
+        internal int lovePoints = 1;
+        internal int stack = 1;
+        private string npcNames_;
 
-        [Serializable]
-        public class BuyItem : TradeItem
+        public TradeItem(string npcNames, string prefabName, int price, string moneyItemName = "Coins",
+            string globalKey = "",
+            int lovePoints = 0, int stack = 1)
         {
-        }
-
-        [Serializable]
-        public class SellItem : TradeItem
-        {
-            public int m_stack = 1;
-        }
-    }
-
-    [Serializable, HideInInspector]
-    public class CrafterItem
-    {
-        public CrafterItem(string prefabName, string m_requiredGlobalKey, int minLevelToMake, int minLevelToUpgrade, int maxQuantity)
-        {
+            this.npcNames_ = npcNames;
+            this.npcNames = npcNames.Split(',').ToList();
             this.prefabName = prefabName;
-            this.m_requiredGlobalKey = m_requiredGlobalKey;
-            this.minLevelToMake = minLevelToMake;
-            this.minLevelToUpgrade = minLevelToUpgrade;
-            this.maxQuantity = maxQuantity;
+            this.moneyItemName = moneyItemName;
+            this.price = price;
+            this.m_requiredGlobalKey = globalKey;
+            this.lovePoints = lovePoints;
+            this.stack = stack;
+
+            all.Add(this);
         }
-        public CrafterItem(string prefabName)
+
+        public override string ToString()
         {
-            this.prefabName = prefabName;
-        }
-
-        [HideInInspector] internal ItemDrop prefab { get; set;}
-        public string prefabName;
-        public string m_requiredGlobalKey;
-        public int minLevelToMake = 1;
-        public int minLevelToUpgrade = 2;
-
-        [Tooltip("Crafter can upgrade weapons to levels exceeding the maximum vanilla level")]
-        public int maxQuantity = 10;
-
-        [Serializable]
-        public class CrafterUpgradeItem
-        {
-            public int toQuantity = 2;
-            public int minLevel = 2;
+            return
+                $"NpcNames: {npcNames_}, " +
+                $"PrefabName: {prefabName}, " +
+                $"MoneyItemName: {moneyItemName}, " +
+                $"Price: {price}, " +
+                $"GlobalKey: {m_requiredGlobalKey}, " +
+                $"LovePoints: {lovePoints}, " +
+                $"Stack: {stack}";
         }
     }
 }

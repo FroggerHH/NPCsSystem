@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using UnityEngine;
+using UnityEngine.Serialization;
 using static NPCsSystem.CrafterItem;
 
 namespace NPCsSystem
@@ -17,15 +19,14 @@ namespace NPCsSystem
         public NPC_Profession m_profession;
         public NPC_Gender m_gender;
 
-        public List<CrafterItem> itemsToCraft = new();
+        internal List<CrafterItem> itemsToCraft = new  List<CrafterItem>();
         public int startinglevel = 1;
-        public List<TradeItem.BuyItem> itemsToBuy = new();
-        public List<TradeItem.SellItem> itemsToSell = new();
+        internal List<TradeItem> tradeItems = new List<TradeItem>();
 
         [Header("Warrior")] [SerializeField] public string[] startWeapons;
 
 
-        public List<string> talksClearWeather_Day = new()
+        public List<string> talksClearWeather_Day = new List<string>()
         {
             "$npcTalk_ClearWeather_Day1",
             "$npcTalk_ClearWeather_Day2",
@@ -39,7 +40,7 @@ namespace NPCsSystem
             "$npcTalk_ClearWeather_Day10"
         };
 
-        public List<string> talksClearWeather_Night = new()
+        public List<string> talksClearWeather_Night = new List<string>()
         {
             "$npcTalk_ClearWeather_Night1",
             "$npcTalk_ClearWeather_Night2",
@@ -53,7 +54,7 @@ namespace NPCsSystem
             "$npcTalk_ClearWeather_Night10"
         };
 
-        public List<string> talksBadWeather_Day = new()
+        public List<string> talksBadWeather_Day = new List<string>()
         {
             "$npcTalk_BadWeather_Day1",
             "$npcTalk_BadWeather_Day2",
@@ -67,7 +68,7 @@ namespace NPCsSystem
             "$npcTalk_BadWeather_Day10"
         };
 
-        public List<string> talksBadWeather_Night = new()
+        public List<string> talksBadWeather_Night = new List<string>()
         {
             "$npcTalk_BadWeather_Night1",
             "$npcTalk_BadWeather_Night2",
@@ -88,8 +89,9 @@ namespace NPCsSystem
                 $"{nameof(m_prefab)}: {m_prefab.name}, {nameof(name)}: {name}, {nameof(m_profession)}: {m_profession}";
         }
 
-        public bool IsWarrior() => m_profession == NPC_Profession.Warrior;
-        public bool IsCrafter() => m_profession == NPC_Profession.Crafter;
+        internal bool IsFarmer() => m_profession == NPC_Profession.Farmer;
+        internal bool IsWarrior() => m_profession == NPC_Profession.Warrior;
+        internal bool IsCrafter() => m_profession == NPC_Profession.Crafter;
 
 
         public void AddCrafterItem(CrafterItem item)
@@ -97,7 +99,7 @@ namespace NPCsSystem
             itemsToCraft.Add(item);
         }
 
-        public void AddCrafterItem(string item)
+        public void AddCrafterItem(string item, int maxCountToCraft = 1)
         {
             if (m_profession != NPC_Profession.Crafter)
             {
@@ -105,9 +107,9 @@ namespace NPCsSystem
                 return;
             }
 
-            itemsToCraft.Add(new(item));
+            itemsToCraft.Add(new(item, maxCountToCraft));
         }
 
-        public bool HasProfession() => m_profession != null && m_profession != NPC_Profession.None;
+        internal bool HasProfession() => m_profession != null && m_profession != NPC_Profession.None;
     }
 }

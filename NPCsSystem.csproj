@@ -120,9 +120,11 @@
     </ItemGroup>
     <ItemGroup>
         <Compile Include="Const.cs" />
+        <Compile Include="CrafterItem.cs" />
         <Compile Include="GOext.cs" />
         <Compile Include="HouseType.cs" />
         <Compile Include="InventoryExt.cs" />
+        <Compile Include="JFHelperLite.cs" />
         <Compile Include="ListExt.cs" />
         <Compile Include="LocalizationManager.cs" />
         <Compile Include="Managers\ItemManager.cs" />
@@ -141,6 +143,8 @@
         <Compile Include="Patch\NotkillNPCs.cs" />
         <Compile Include="Patch\NPCHoverText.cs" />
         <Compile Include="Patch\OnContainerChanged.cs" />
+        <Compile Include="Patch\SpawnPrefabFix.cs" />
+        <Compile Include="Patch\TraderPatch.cs" />
         <Compile Include="Patch\UpdateNPC_AI.cs" />
         <Compile Include="Patch\ZNetScenePatch.cs" />
         <Compile Include="Plugin.cs" />
@@ -151,10 +155,11 @@
         <Compile Include="RequestBoard.cs" />
         <Compile Include="RequestType.cs" />
         <Compile Include="StringExtention.cs" />
+        <Compile Include="TerminalCommands.cs" />
         <Compile Include="TimeUtils.cs" />
         <Compile Include="NPCsManager.cs" />
         <Compile Include="TradeItem.cs" />
-        <Compile Include="Helper.cs" />
+        <Compile Include="JFHelper.cs" />
     </ItemGroup>
     <ItemGroup>
       <None Include="App.config" />

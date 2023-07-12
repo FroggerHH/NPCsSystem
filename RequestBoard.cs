@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using UnityEngine;
@@ -11,20 +12,28 @@ public class RequestBoard : MonoBehaviour, Interactable, Hoverable
     private ZNetView m_view;
     private NPC_Town town;
     private StringBuilder sb = new StringBuilder();
+    private List<GameObject> notes = new();
 
     private void Awake()
     {
         m_piece = GetComponent<Piece>();
         m_view = GetComponent<ZNetView>();
+
+        var notesTransform = Utils.FindChild(transform, "Notes");
+        for (int i = 0; i < notesTransform.childCount; i++)
+        {
+            notes.Add(notesTransform.GetChild(i).gameObject);
+        }
     }
 
     internal void Init(NPC_Town _town)
     {
         town = _town;
-
+        town.onRequestsChanged += UpdateHover;
         UpdateHover();
         InvokeRepeating(nameof(UpdateHover), 3, 3);
     }
+
 
     public bool Interact(Humanoid user, bool hold, bool alt)
     {
@@ -52,6 +61,10 @@ public class RequestBoard : MonoBehaviour, Interactable, Hoverable
         if (list.Count == 0)
         {
             sb.AppendLine("$noRequests".Localize());
+            foreach (var note in notes)
+            {
+                note.SetActive(false);
+            }
         }
         else
         {
@@ -65,24 +78,32 @@ public class RequestBoard : MonoBehaviour, Interactable, Hoverable
                 {
                     requestsFor = "$piece_bed".Localize();
                 }
-                else if (request.requestType == RequestType.CraftingStation)
+                else if (request.requestType == RequestType.Food)
+                {
+                    requestsFor = "$npc_food".Localize();
+                }
+                else if (request.requestType == RequestType.Thing)
                 {
                     requestsFor = request.thingName.Localize();
                 }
                 else if (request.requestType == RequestType.Item)
                 {
+                    int i = 0;
                     foreach (var item in request.items)
                     {
-                        requestsFor += $"{item.Item2} {item.Item1.m_name.Localize()}, ";
+                        i++;
+                        requestsFor +=
+                            $"{item.Value} {ObjectDB.instance.GetItemPrefab(item.Key).GetComponent<ItemDrop>().m_itemData.m_shared.m_name.Localize()}{(i != request.items.Count ? ", " : "")}";
                     }
                 }
 
-                if (requestsFor.EndsWith(", "))
-                {
-                    requestsFor.Remove(requestsFor.Length - 2);
-                }
-
                 sb.AppendLine($"{index + 1}. {request.npcName} {"$request_asksFor".Localize()} {requestsFor}");
+            }
+
+
+            for (int i = 0; i < notes.Count; i++)
+            {
+                notes[i].SetActive(i < list.Count);
             }
         }
     }

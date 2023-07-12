@@ -1,12 +1,14 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Globalization;
+using Object = UnityEngine.Object;
 
 namespace NPCsSystem;
 
 [Description("Thanks to Azu ;)")]
-public class TimeUtils
+public static class TimeUtils
 {
+
     private static string GetCurrentTimeString() => string.Format("<b>{0}</b>", GetCurrentTime().ToString("HH:mm"));
 
     [Description("HH.mm")]

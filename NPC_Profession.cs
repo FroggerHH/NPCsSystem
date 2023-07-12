@@ -5,7 +5,8 @@ namespace NPCsSystem
         None,
         Crafter,
         Trader,
-        Warrior,
-        Builder
+        Builder,
+        Farmer,
+        Warrior
     }
 }

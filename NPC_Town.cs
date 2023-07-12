@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using JustAFrogger;
 using UnityEngine;
 using static NPCsSystem.Plugin;
 using static NPCsSystem.HouseType;
@@ -20,8 +21,8 @@ namespace NPCsSystem
         public HashSet<NPC_House> houses = new HashSet<NPC_House>();
         public float radius;
         [SerializeField] private int housesNeded = 5;
-        private List<Request> requests = new();
-        private Action<Request> onCompleteRequest;
+        internal List<Request> requests = new();
+        internal Action onRequestsChanged;
 
         private void SetReferenses()
         {
@@ -60,13 +61,19 @@ namespace NPCsSystem
             towns.Add(this);
             SetReferenses();
             //FindHouses();
-            //TrySpawnNpcs();
+            //MainInit();
         }
 
         private void OnDestroy()
         {
             towns.Remove(this);
         }
+
+        private void MainInit()
+        {
+            TrySpawnNpcs();
+        }
+
 
         private void TrySpawnNpcs()
         {
@@ -75,20 +82,14 @@ namespace NPCsSystem
             zdo.Set("NPCsSpawned", true);
 
             Debug("Spawning NPCs");
+
             foreach (var profile in npcs)
             {
                 NPC_Brain npc = null;
                 var sleepHouse = FindSleepHouse(profile);
-                var workHouse = FindWorkHouse(profile);
                 if (!sleepHouse)
                 {
                     DebugWarning($"Can't find sleepHouse for {profile}");
-                    continue;
-                }
-
-                if (!workHouse && profile.HasProfession())
-                {
-                    DebugWarning($"Can't find workHouse for {profile}");
                     continue;
                 }
 
@@ -163,17 +164,21 @@ namespace NPCsSystem
                 if (house.IsWarehouse())
                 {
                     var houseInventory = house.GetHouseInventory();
-                    foreach (var item in items)
+                    if (items != null)
                     {
-                        if (!houseInventory.Exists(x =>
-                                x.m_shared.m_name == item.Item1.m_name && x.m_stack >= item.Item2))
+                        foreach (var item in items)
                         {
-                            itemsCheck = false;
-                            continue;
+                            if (!houseInventory.Exists(x =>
+                                    x.m_shared.m_name == item.Item1.m_name && x.m_stack >= item.Item2))
+                            {
+                                itemsCheck = false;
+                                continue;
+                            }
                         }
+
+                        if (!itemsCheck) continue;
                     }
 
-                    if (!itemsCheck) continue;
                     returnHouses.Add(house);
                 }
             }
@@ -226,7 +231,7 @@ namespace NPCsSystem
             if (houses.Count == housesNeded)
             {
                 Debug("Initing town");
-                TrySpawnNpcs();
+                MainInit();
                 InitAllNPCs();
             }
         }
@@ -236,6 +241,8 @@ namespace NPCsSystem
             foreach (var npc in NPC_Brain.allNPCs)
             {
                 npc.workHouse = FindWorkHouse(npc.profile);
+                if (!npc.workHouse && npc.profile.HasProfession() && npc.profile.m_profession != NPC_Profession.Builder)
+                    DebugWarning($"Can't find workHouse for {npc.profile}");
             }
         }
 
@@ -243,7 +250,7 @@ namespace NPCsSystem
         {
             var wornBuildings = FindAllWornBuilding();
 
-            return Helper.Nearest(wornBuildings, transform.position);
+            return JFHelper.Nearest(wornBuildings, transform.position);
         }
 
         public List<WearNTear> FindAllWornBuilding()
@@ -293,33 +300,37 @@ namespace NPCsSystem
 
         public bool RegisterNPCRequest(Request request)
         {
-            if (HaveRequest(request)) return false;
+            var haveRequest = HaveRequest(request.requestType, request.npcName);
+            if (haveRequest) return false;
             requests.Add(request);
+            onRequestsChanged?.Invoke();
             return true;
         }
 
-        public bool HaveRequest(Request request)
+        public bool HaveRequest(RequestType requestType, string npcName)
         {
             return requests.Any(x =>
-                x.npcName == request.npcName && x.requestType == request.requestType &&
-                x.thingName == request.thingName);
+                x.npcName == npcName && x.requestType == requestType);
         }
 
         public List<Request> GetRequests() => requests;
 
-        public void CompleteRequest(Request request)
+        public void CompleteRequest(Request request_, bool emote = false)
         {
-            if (!HaveRequest(request)) return;
-            requests.Remove(FindRequest(request));
-            onCompleteRequest?.Invoke(request);
+            var request = FindRequest(request_);
+            if (request == null) return;
+            Debug($"Complete request {request}");
+            requests.Remove(request);
+            onRequestsChanged?.Invoke();
+            if (!emote) return;
             var npc = GetNPC(request.npcName);
             if (npc)
             {
-                npc.Emote("CompleteRequest");
+                npc.Emote($"CompleteRequest {request}");
             }
         }
 
-        private Request FindRequest(Request request)
+        internal Request FindRequest(Request request)
         {
             return requests.Find(x =>
                 x.npcName == request.npcName && x.requestType == request.requestType &&

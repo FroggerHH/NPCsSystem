@@ -2,7 +2,8 @@
 
 public enum RequestType
 {
+    Food,
     Item,
-    CraftingStation,
-    Bed
+    Bed,
+    Thing
 }
