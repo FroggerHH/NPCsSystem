@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using BepInEx;
+using BepInEx.Logging;
 using HarmonyLib;
 using JetBrains.Annotations;
 using UnityEngine;
@@ -15,8 +16,8 @@ namespace JustAFrogger;
 public class JFHelperLite
 {
     private static readonly List<MusicLocation> allMusicLocations = new();
-    
-    public static void Initialize(PluginInfo mod)
+
+    public static void Initialize(ManualLogSource mod)
     {
         if (JFHelper.isInitialized) return;
         JFHelper.Initialize(mod);

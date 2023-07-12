@@ -128,6 +128,7 @@
         <Compile Include="ListExt.cs" />
         <Compile Include="LocalizationManager.cs" />
         <Compile Include="Managers\ItemManager.cs" />
+        <Compile Include="Managers\MaterialReplacer.cs" />
         <Compile Include="Managers\PieceManager.cs" />
         <Compile Include="NPC_Gender.cs" />
         <Compile Include="NPC_Profession.cs" />
@@ -139,6 +140,7 @@
         <Compile Include="Patch\BuildInHousePatch.cs" />
         <Compile Include="Patch\FixMusic.cs" />
         <Compile Include="Patch\FixPieces.cs" />
+        <Compile Include="Patch\FixPlantsInTown.cs" />
         <Compile Include="Patch\Materials.cs" />
         <Compile Include="Patch\NotkillNPCs.cs" />
         <Compile Include="Patch\NPCHoverText.cs" />

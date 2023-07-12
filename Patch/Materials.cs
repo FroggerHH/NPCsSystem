@@ -11,20 +11,25 @@ using static ZoneSystem.ZoneVegetation;
 namespace NPCsSystem;
 
 [HarmonyPatch]
-public class Materials
+public static class Materials
 {
+    private static List<(string, AssetBundle)> objects = new();
+
+    public static void AddObjectToFix(AssetBundle bundle, string name)
+    {
+        objects.Add((name, bundle));
+    }
+
     [HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.Awake)), HarmonyPostfix, HarmonyWrapSafe]
     public static void NPCsSystemFixMaterials()
     {
-        FixSmt(bundle.LoadAsset<GameObject>("NPSHouseCrafter"));
-        FixSmt(bundle.LoadAsset<GameObject>("NPSHouseHotel"));
-        FixSmt(bundle.LoadAsset<GameObject>("NPSHouseWarehouse"));
-        FixSmt(bundle.LoadAsset<GameObject>("NPSPark"));
+        foreach (var o in objects)
+        {
+            FixSmt(o.Item2.LoadAsset<GameObject>(o.Item1));
+        }
+
         var npc = bundle.LoadAsset<GameObject>("PlayerNPS");
         FixSmt(npc);
-        Utils.FindChild(npc.transform, "HammerMark").GetComponent<Renderer>().sharedMaterial =
-            Utils.FindChild(ZNetScene.instance.GetPrefab("piece_workbench").transform, "Particle System")
-                .GetComponent<Renderer>().sharedMaterial;
     }
 
     private static void FixBundle(AssetBundle assetBundle)
@@ -46,6 +51,7 @@ public class Materials
         FixCharacter(child);
         FixDestructible(child);
         FixPickable(child);
+        FixPlant(child);
         FixContainer(child);
         FixFireplace(child);
         FixNPC(child);
@@ -105,6 +111,25 @@ public class Materials
         }
     }
 
+    private static void FixPlant(GameObject asset)
+    {
+        var all = asset.GetComponentsInChildren<Plant>();
+        if (all != null && all.Length > 0)
+        {
+            foreach (var plant in all)
+            {
+                var prefab = ZNetScene.instance.GetPrefab(plant.GetPrefabName());
+                if (prefab)
+                {
+                    var orig = prefab.GetComponent<Plant>();
+                    plant.m_name = orig.m_name;
+                    plant.m_grownPrefabs = orig.m_grownPrefabs;
+                    plant.m_growEffect = orig.m_growEffect;
+                }
+            }
+        }
+    }
+
     private static void FixDestructible(GameObject asset)
     {
         var destructibles = asset.GetComponentsInChildren<Destructible>();
@@ -152,7 +177,7 @@ public class Materials
         }
     }
 
-    internal static void FixCharacter(GameObject asset)
+    private static void FixCharacter(GameObject asset)
     {
         var all = asset.GetComponentsInChildren<Character>();
         if (all != null && all.Length > 0)
@@ -172,7 +197,7 @@ public class Materials
         }
     }
 
-    internal static void FixNPC(GameObject asset)
+    private static void FixNPC(GameObject asset)
     {
         var brain = asset.GetComponent<NPC_Brain>();
         if (brain != null)
@@ -180,17 +205,25 @@ public class Materials
             FixEffect(brain.m_sootheEffect, asset.name);
             FixEffect(brain.m_wakeupEffects, asset.name);
             FixEffect(brain.m_alertedEffects, asset.name);
+
+            Utils.FindChild(brain.transform, "HammerMark").GetComponent<Renderer>().sharedMaterial =
+                Utils.FindChild(ZNetScene.instance.GetPrefab("piece_workbench").transform, "Particle System")
+                    .GetComponent<Renderer>().sharedMaterial;
         }
     }
 
-    internal static void FixWearNTear(GameObject asset)
+    private static void FixWearNTear(GameObject asset)
     {
+        if (!asset) return;
         var all = asset.GetComponentsInChildren<WearNTear>();
         if (all != null && all.Length > 0)
         {
             foreach (var obj in all)
             {
-                var orig = ZNetScene.instance.GetPrefab(obj.GetPrefabName()).GetComponent<WearNTear>();
+                var prefab = ZNetScene.instance.GetPrefab(obj.GetPrefabName());
+                if (!prefab) return;
+                var orig = prefab.GetComponent<WearNTear>();
+                if (!orig) return;
                 FixEffect(obj.m_destroyedEffect, orig.name);
                 FixEffect(obj.m_hitEffect, orig.name);
                 FixEffect(obj.m_switchEffect, orig.name);
@@ -198,7 +231,7 @@ public class Materials
         }
     }
 
-    internal static void FixPiece(GameObject asset)
+    private static void FixPiece(GameObject asset)
     {
         var all = asset.GetComponentsInChildren<Piece>();
         if (all != null && all.Length > 0)

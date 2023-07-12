@@ -32,6 +32,12 @@ public class ZNetScenePatch
 
                 item.recipe = ObjectDB.instance.GetRecipe(item.prefab.m_itemData);
             }
+
+            foreach (var item in profile.plantNames)
+            {
+                if (!string.IsNullOrEmpty(item) && !string.IsNullOrWhiteSpace(item))
+                    profile.plants.Add(ZNetScene.instance.GetPrefab(item));
+            }
         }
 
         foreach (var item in TradeItem.all)
@@ -44,8 +50,10 @@ public class ZNetScenePatch
                     DebugError($"Can't find item {item.prefabName} for trade {item}");
                     continue;
                 }
+
                 item.prefab = prefab.GetComponent<ItemDrop>();
             }
+
             if (!string.IsNullOrEmpty(item.moneyItemName) && !string.IsNullOrWhiteSpace(item.moneyItemName))
                 item.moneyItem = ZNetScene.instance.GetPrefab(item.moneyItemName).GetComponent<ItemDrop>();
 
@@ -62,6 +70,7 @@ public class ZNetScenePatch
                 npc.tradeItems.Add(item);
             }
         }
+
         TraderPatch.coinPrefab = ZNetScene.instance.GetPrefab("Coins").GetComponent<ItemDrop>();
     }
 }

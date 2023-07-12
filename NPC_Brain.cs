@@ -172,12 +172,6 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             }
             else
             {
-                if (m_aiStatus == "Target dead, go for loot")
-                {
-                    PickupLootFromDeadEnemy(dt);
-                    return;
-                }
-
                 if (m_circleTargetInterval > 0f && m_targetCreature && IsAlerted())
                 {
                     m_pauseTimer += dt;
@@ -304,17 +298,14 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
                         }
                     }
 
-                    var drop = JFHelper.Nearest(drops, transform.position);
-                    if (drop)
+                    foreach (var itemDrop in drops)
                     {
-                        human.Pickup(drop.gameObject);
-                        drops.Remove(drop);
+                        itemDrop.m_itemData.m_customData.Add("NPC_loot", "true");
+                        human.Pickup(itemDrop.gameObject);
                     }
-                    else
-                    {
-                        m_aiStatus = "";
-                        //TODO: Put the loot from the enemy in the chest
-                    }
+
+                    m_aiStatus = "Puting loot from the enemy in the chest";
+                    //TODO: Put the loot from the enemy in the chest
                 }
             }
             else
@@ -328,21 +319,65 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         }
     }
 
+    private bool PutLootFromDeadEnemyToChest(float dt)
+    {
+        var result = false;
+        if (!warehouse) warehouse = town.FindWarehouse(null);
+        if (!warehouse) return false;
+        var targetPos = warehouse.FindContainer().transform.position;
+        if (FindPath(targetPos))
+        {
+            if (MoveTo(dt, targetPos, 3, false))
+            {
+                var allItems = (human.GetInventory().GetAllItems().ToArray().Clone() as ItemDrop.ItemData[]).ToList();
+                foreach (var itemDrop in allItems)
+                {
+                    if (!itemDrop.m_customData.ContainsKey("NPC_loot")) continue;
+                    itemDrop.m_customData.Remove("NPC_loot");
+                    warehouse.AddItem(itemDrop);
+                    human.GetInventory().RemoveItem(itemDrop);
+                    result = true;
+                }
+            }
+        }
+
+        return result;
+    }
+
     private void UpdateNormalBehavior(float dt)
     {
         if (!sleepHouse || !town || IsSleeping()) return;
+
+        if (m_aiStatus == "Target dead, go for loot")
+        {
+            PickupLootFromDeadEnemy(dt);
+            return;
+        }
+
+        if (m_aiStatus == "Puting loot from the enemy in the chest")
+        {
+            if (PutLootFromDeadEnemyToChest(dt)) return;
+        }
+
         if (HaveProfession() && IsTimeToWork())
         {
             var updateProfessionBehavior = UpdateProfessionBehavior(dt);
-            hammerMark.SetActive(updateProfessionBehavior);
-            if (!updateProfessionBehavior)
+            if (updateProfessionBehavior)
+            {
+                hammerMark.SetActive(true);
+            }
+            else
             {
                 UpdateFreeTime(dt);
+                hammerMark.SetActive(false);
             }
         }
         else
         {
-            if (IsTimeToDinner() && UpdateFooding_falseNotNeed(dt)) return;
+            if (IsTimeToDinner())
+            {
+                if (UpdateFooding_falseNotNeed(dt)) return;
+            }
 
             UpdateFreeTime(dt);
         }
@@ -351,6 +386,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     private void UpdateFreeTime(float dt)
     {
         m_aiStatus = "Chilling (having free time)";
+        UnequiAllWeapons();
         if (!entertainmentHouse) entertainmentHouse = town.FindEntertainmentHouse();
         //TrySaySmt(dt); //TODO: say something
         if (entertainmentHouse)
@@ -441,6 +477,8 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
                 return UpdateBuilder(dt);
             case NPC_Profession.Trader:
                 return UpdateTrader(dt);
+            case NPC_Profession.Farmer:
+                return UpdateFarmer(dt);
             default:
                 return false;
         }
@@ -534,6 +572,107 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
             return false;
         }
     }
+
+    private Pickable currentPickable;
+
+    private bool UpdateFarmer(float dt)
+    {
+        if (!sleepHouse || !town) return false;
+        if (!workHouse)
+        {
+            m_aiStatus_Sub = "Don't have house to work";
+            return false;
+        }
+
+        if (!workHouse.plantPointsState.Any(x => x.Value == true)) return false;
+        human.EquipItem(human.GetInventory().GetItem("Cultivator", isPrefabName: true));
+        var workHousePos = workHouse.transform.position;
+        if (FindPath(workHousePos))
+        {
+            if (MoveTo(dt, workHousePos, workHouse.GetRadius(), false))
+            {
+                m_aiStatus_Sub = string.Empty;
+                m_aiStatus = "Working on farm";
+
+                foreach (var plantPoint in workHouse.plantPointsState)
+                {
+                    if (!plantPoint.Value) continue;
+                    var seed = profile.plants.Random();
+                    var instantiate = Instantiate(seed, plantPoint.Key.position, seed.transform.rotation);
+                    if (instantiate.TryGetComponent(out Pickable pickable)) workHouse.AddPickable(pickable);
+                    else if (instantiate.TryGetComponent(out Plant plant)) workHouse.AddPlant(plant);
+
+                    Debug(profile.name + $"Planted {seed}");
+                    m_aiStatus += $"\nPlanted {seed}";
+                    workHouse.plantPointsState[plantPoint.Key] = false;
+                    return true;
+                }
+            }
+            else
+            {
+                m_aiStatus = $"Moving to farm";
+                m_aiStatus_Sub = string.Empty;
+                return true;
+            }
+        }
+        else
+        {
+            m_aiStatus_Sub = $"Can't reach farm";
+            m_aiStatus = m_aiStatus;
+            return false;
+        }
+
+        if (currentPickable)
+        {
+            if (!MoveTo(dt, currentPickable.transform.position, Player.m_localPlayer.m_maxInteractDistance, false))
+            {
+                m_aiStatus = $"Moving to pickable {currentPickable.GetPrefabName()}";
+                return true;
+            }
+        }
+
+
+        if (!currentPickable)
+        {
+            List<Pickable> all = workHouse.pickables.Where(x => !x.m_picked).ToList();
+            currentPickable = JFHelper.Nearest(all, transform.position);
+            return true;
+        }
+
+        m_aiStatus = $"Picking up {currentPickable.GetPrefabName()}";
+        Debug(profile.name + $"{m_aiStatus}");
+        workHouse.plantPointsState[currentPickable.transform] = false;
+        currentPickable.m_nview.InvokeRPC("Pick");
+        human.DoInteractAnimation(currentPickable.transform.position);
+
+        Collider[] colliderArray =
+            Physics.OverlapSphere(transform.position, 4, MonsterAI.m_itemMask);
+        List<ItemDrop> drops = new();
+        float num1 = 999999f;
+        foreach (Collider collider in colliderArray)
+        {
+            if (collider.attachedRigidbody)
+            {
+                ItemDrop component = collider.attachedRigidbody.GetComponent<ItemDrop>();
+                if (component && component.GetComponent<ZNetView>().IsValid())
+                {
+                    drops.Add(component);
+                }
+            }
+        }
+
+        if (!warehouse) warehouse = town.FindWarehouse(null);
+        foreach (var drop in drops)
+        {
+            m_aiStatus += $"Adding {drop.GetPrefabName()} to warehouse";
+            warehouse.AddItem(drop.m_itemData);
+            drop.m_nview.Destroy();
+        }
+
+
+        return true;
+    }
+
 
     [Description("False if can't")]
     private bool UpdateCrafter(float dt)
@@ -700,7 +839,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         Chat.instance.SetNpcText(gameObject, Vector3.up * 1.5f, 20, 3, profile.name,
             $"$npc_made_msg {itemDrop.m_itemData.m_shared.m_name}".Localize(), false);
         Emote("craft");
-        if (workHouse.AddItem(itemDrop)) itemDrop.m_nview.Destroy();
+        if (workHouse.AddItem(itemDrop.m_itemData)) itemDrop.m_nview.Destroy();
 
         human.m_zanim.SetInt("crafting", 0);
         inCrafting = false;
@@ -963,7 +1102,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
 
     public bool UpdateSleep(float dt)
     {
-        if (!sleepHouse || !town || !profile) return true;
+        if (!sleepHouse || !town || !profile) return false;
         var isSleeping = IsSleeping();
         if (isSleeping && m_aiStatus_Sub == "Can't reach bed") m_aiStatus_Sub = string.Empty;
         if (isSleeping && !m_attached) Wakeup();
@@ -1136,9 +1275,6 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
                 human.GetInventory().GiveIfNotHave("Cultivator");
                 human.GetInventory().GiveIfNotHave("Hoe");
                 break;
-            default:
-                Destroy(gameObject.GetComponent<Trader>());
-                break;
         }
 
         human.m_visEquipment.m_models = ZNetScene.instance.GetPrefab("Player").GetComponent<VisEquipment>().m_models;
@@ -1183,7 +1319,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         sb.AppendLine($"Ai: {m_aiStatus}");
         sb.AppendLine($"Hungry: {IsHungry()}");
         sb.AppendLine($"Sleeping: {IsSleeping()}");
-        if (trader)
+        if (profile.IsTrader() && IsTimeToWork())
         {
             sb.AppendLine($"{Const.UseKey.Localize()} {"$npc_toTrade".Localize()}");
         }
@@ -1197,7 +1333,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     public bool Interact(Humanoid user, bool hold, bool alt)
     {
         if (hold) return false;
-        if (trader) return trader.Interact(user, hold, alt);
+        if (profile.IsTrader() && IsTimeToWork()) return trader.Interact(user, hold, alt);
         return false;
     }
 

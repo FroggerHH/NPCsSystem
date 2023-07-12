@@ -19,11 +19,14 @@ namespace NPCsSystem
         public NPC_Profession m_profession;
         public NPC_Gender m_gender;
 
-        internal List<CrafterItem> itemsToCraft = new  List<CrafterItem>();
+        internal List<CrafterItem> itemsToCraft = new List<CrafterItem>();
         public int startinglevel = 1;
         internal List<TradeItem> tradeItems = new List<TradeItem>();
 
         [Header("Warrior")] [SerializeField] public string[] startWeapons;
+
+        public List<string> plantNames = new List<string>();
+        internal List<GameObject> plants = new List<GameObject>();
 
 
         public List<string> talksClearWeather_Day = new List<string>()
@@ -82,7 +85,6 @@ namespace NPCsSystem
             "$npcTalk_BadWeather_Night10"
         };
 
-
         public override string ToString()
         {
             return
@@ -92,6 +94,7 @@ namespace NPCsSystem
         internal bool IsFarmer() => m_profession == NPC_Profession.Farmer;
         internal bool IsWarrior() => m_profession == NPC_Profession.Warrior;
         internal bool IsCrafter() => m_profession == NPC_Profession.Crafter;
+        internal bool IsTrader() => m_profession == NPC_Profession.Trader;
 
 
         public void AddCrafterItem(CrafterItem item)

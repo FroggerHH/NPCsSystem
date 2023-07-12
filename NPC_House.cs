@@ -26,7 +26,11 @@ namespace NPCsSystem
         private List<Door> doors = new List<Door>();
         private List<Sign> signs = new List<Sign>();
         private List<Sign> timeSigns = new List<Sign>();
+        internal List<Plant> plants = new();
+        internal List<Pickable> pickables = new();
         internal List<NPC_Brain> currentnpcs = new List<NPC_Brain>();
+        [SerializeField] internal List<Transform> plantPoints = new();
+        [SerializeField] internal Dictionary<Transform, bool> plantPointsState = new();
 
         public NPC_Profession professionForProfessionHouse;
         public int maxNPCs = 1;
@@ -95,6 +99,10 @@ namespace NPCsSystem
             }
 
             StartCoroutine(RegisterHouse());
+            foreach (var point in plantPoints)
+            {
+                plantPointsState.Add(point, true);
+            }
         }
 
         private void Start()
@@ -152,6 +160,18 @@ namespace NPCsSystem
                     continue;
                 }
 
+                if (piece.TryGetComponent(out Plant plant))
+                {
+                    plants.Add(plant);
+                    continue;
+                }
+
+                if (piece.TryGetComponent(out Pickable pickable))
+                {
+                    pickables.Add(pickable);
+                    continue;
+                }
+
                 if (piece.TryGetComponent(out RequestBoard _requestBoard))
                 {
                     requestBoard = _requestBoard;
@@ -179,6 +199,7 @@ namespace NPCsSystem
             }
 
             InvokeRepeating(nameof(UpdateTimeSigns), 2, 2);
+            InvokeRepeating(nameof(DistributeBeds), 10, 10);
             DistributeBeds();
             Load();
         }
@@ -230,7 +251,6 @@ namespace NPCsSystem
             return retList;
         }
 
-        //public float GetRadius() => m_location.GetMaxRadius();
         public void AddBed(Bed bed)
         {
             // StartCoroutine(DistributeBeds(bed));
@@ -257,6 +277,7 @@ namespace NPCsSystem
         private void DistributeBeds()
         {
             beds.Clear();
+            if (currentnpcs.Count == 0 || bedObjs.Count == 0) return;
             foreach (var bed in bedObjs)
             {
                 bed.SetOwner(0, string.Empty);
@@ -311,6 +332,26 @@ namespace NPCsSystem
             chests.Remove(craftingStatione);
         }
 
+        public void AddPlant(Plant plant)
+        {
+            plants.Add(plant);
+        }
+
+        public void RemovePlant(Plant plant)
+        {
+            plants.Remove(plant);
+        }
+
+        public void AddPickable(Pickable pickable)
+        {
+            pickables.Add(pickable);
+        }
+
+        public void RemovePickable(Pickable pickable)
+        {
+            pickables.Remove(pickable);
+        }
+
         public void AddDoor(Door door)
         {
             doors.Add(door);
@@ -330,7 +371,6 @@ namespace NPCsSystem
         {
             signs.Remove(sign);
         }
-
 
         public void RegisterNPC(NPC_Brain npc)
         {
@@ -482,11 +522,11 @@ namespace NPCsSystem
             else return null;
         }
 
-        public bool AddItem(ItemDrop itemData)
+        public bool AddItem(ItemDrop.ItemData itemData)
         {
             foreach (var chest in chests)
             {
-                if (chest.GetInventory().AddItem(itemData.m_itemData))
+                if (chest.GetInventory().AddItem(itemData))
                 {
                     return true;
                 }
@@ -582,6 +622,49 @@ namespace NPCsSystem
             return result;
         }
 
+        public Container FindContainer()
+        {
+            foreach (var chest in chests)
+            {
+                if (chest.GetInventory().HaveEmptySlot()) return chest;
+            }
+
+            return null;
+        }
+
         private string GetSaveData() => m_view.GetZDO().GetString("save");
+
+        public override string ToString()
+        {
+            string currentnpcsStr = "";
+            if (currentnpcs.Count > 0)
+            {
+                foreach (var brain in currentnpcs)
+                {
+                    currentnpcsStr += $"{brain.profile.name}, ";
+                }
+            }
+
+            if (IsProfessionHouse())
+            {
+                foreach (var brain in NPC_Brain.allNPCs.ToList().FindAll(x => x.workHouse == this))
+                {
+                    currentnpcsStr += $"{brain.profile.name}, ";
+                }
+            }
+
+
+            return $"{gameObject.GetPrefabName()}, " +
+                   $"\nNPCs: {currentnpcsStr}" +
+                   $"\nMaxNpCs: {maxNPCs}, " +
+                   $"\nHouseType: {houseType}, "
+                   + $"\nChests: {chests.Count}"
+                   + $"\nPickables: {pickables.Count}"
+                   + $"\nPlants: {plants.Count}"
+                   + $"\nSigns: {signs.Count}"
+                   + $"\nDoors: {doors.Count}"
+                   + $"\nCraftingStations: {craftingStations.Count}"
+                   + $"\nBeds: {bedObjs.Count}";
+        }
     }
 }

@@ -15,7 +15,7 @@ namespace NPCsSystem
         public static HashSet<NPC_Town> towns = new HashSet<NPC_Town>();
 
         //private Location m_location;
-        private ZNetView m_view;
+        internal ZNetView m_view;
 
         [Header("Settings")] public List<NPC_Profile> npcs = new List<NPC_Profile>();
         public HashSet<NPC_House> houses = new HashSet<NPC_House>();

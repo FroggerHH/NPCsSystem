@@ -48,10 +48,19 @@ public class BuildInHousePatch
             house.RemoveDoor(door);
         }
 
-
         if (__instance.TryGetComponent(out Sign sign))
         {
             house.RemoveSign(sign);
+        }
+
+        if (__instance.TryGetComponent(out Plant plant))
+        {
+            house.RemovePlant(plant);
+        }
+
+        if (__instance.TryGetComponent(out Pickable pickable))
+        {
+            house.RemovePickable(pickable);
         }
     }
 
@@ -85,6 +94,16 @@ public class BuildInHousePatch
         if (piece.TryGetComponent(out Sign sign))
         {
             house.AddSign(sign);
+        }
+
+        if (piece.TryGetComponent(out Plant plant))
+        {
+            house.AddPlant(plant);
+        }
+
+        if (piece.TryGetComponent(out Pickable pickable))
+        {
+            house.AddPickable(pickable);
         }
     }
 }

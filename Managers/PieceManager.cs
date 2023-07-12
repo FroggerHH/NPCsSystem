@@ -19,8 +19,6 @@ namespace PieceManager;
 [PublicAPI]
 public enum CraftingTable
 {
-    Disabled,
-    Inventory,
     None,
     [InternalName("piece_workbench")] Workbench,
     [InternalName("piece_cauldron")] Cauldron,
@@ -1226,6 +1224,12 @@ public static class PiecePrefabManager
         return assets;
     }
 
+    public static IEnumerable<GameObject> FixRefs(AssetBundle assetBundle)
+    {
+        var allshits = assetBundle.LoadAllAssets<GameObject>();
+        return allshits;
+    }
+
     private static readonly List<GameObject> piecePrefabs = new();
     private static readonly Dictionary<GameObject, string> customPiecePrefabs = new();
     private static readonly List<GameObject> ZnetOnlyPrefabs = new();
@@ -1238,6 +1242,11 @@ public static class PiecePrefabManager
         bool addToCustomPieceTable = false, string customPieceTable = "")
     {
         GameObject prefab = assets.LoadAsset<GameObject>(prefabName);
+
+        foreach (GameObject gameObject in FixRefs(assets))
+        {
+            MaterialReplacer.RegisterGameObjectForShaderSwap(gameObject, MaterialReplacer.ShaderType.UseUnityShader);
+        }
 
         if (addToPieceTable)
         {

@@ -1,6 +1,7 @@
 ﻿using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -14,6 +15,8 @@ public static class TerminalCommands
     private static List<string> commands = new()
     {
         "CompleteItemRequest",
+        "KillAllNPCs",
+        "InWhatHouseAmI",
     };
 
 
@@ -52,6 +55,35 @@ public static class TerminalCommands
                         {
                             town.CompleteRequest(request, true);
                         }
+
+                        args.Context.AddString("Done");
+                        return;
+                    }
+                    else if (args.Length == 2 && args[1] == "InWhatHouseAmI")
+                    {
+                        var npcHouse = NPC_House.FindHouse(Player.m_localPlayer.transform.position);
+                        if (!npcHouse)
+                        {
+                            args.Context.AddString("None");
+                            return;
+                        }
+
+                        args.Context.AddString(npcHouse.ToString());
+                        return;
+                    }
+                    else if (args.Length == 2 && args[1] == "KillAllNPCs")
+                    {
+                        foreach (var town in (NPC_Town.towns.ToArray().Clone() as NPC_Town[]).ToList())
+                        {
+                            town.m_view.GetZDO().Reset();
+                        }
+
+                        foreach (var npc in (NPC_Brain.allNPCs.ToArray().Clone() as NPC_Brain[]).ToList())
+                        {
+                            npc.m_nview.Destroy();
+                        }
+
+                        NPC_Brain.allNPCs = new();
 
                         args.Context.AddString("Done");
                         return;

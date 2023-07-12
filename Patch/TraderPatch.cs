@@ -88,6 +88,7 @@ public class TraderPatch
     [HarmonyPatch(typeof(StoreGui), nameof(StoreGui.SelectItem)), HarmonyPostfix, HarmonyWrapSafe]
     public static void StoreGui_SelectItem(StoreGui __instance)
     {
+        if (__instance.m_selectedItem == null) return;
         current = TradeItem.all.Find(x => x.prefab == __instance.m_selectedItem.m_prefab);
         if (current == null)
         {
@@ -142,5 +143,12 @@ public class TraderPatch
     {
         if (texts == null || texts.Count == 0) return false;
         return true;
+    }
+
+    [HarmonyPatch(typeof(Trader), nameof(Trader.Interact)), HarmonyPrefix, HarmonyWrapSafe]
+    public static void Trader_Say(Trader __instance, Humanoid character, bool hold)
+    {
+        if (!__instance.GetComponent<NPC_Brain>()) return;
+        __instance.transform.rotation = Quaternion.LookRotation(character.transform.position);
     }
 }

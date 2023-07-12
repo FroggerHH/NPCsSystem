@@ -8,7 +8,6 @@ namespace NPCsSystem;
 [Description("Thanks to Azu ;)")]
 public static class TimeUtils
 {
-
     private static string GetCurrentTimeString() => string.Format("<b>{0}</b>", GetCurrentTime().ToString("HH:mm"));
 
     [Description("HH.mm")]

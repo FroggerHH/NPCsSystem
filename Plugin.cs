@@ -181,7 +181,7 @@ internal class Plugin : BaseUnityPlugin
         };
 
         BuildPiece piece_requestBoard = new(bundle, "piece_requestBoard");
-        piece_requestBoard.Crafting.Set(CraftingTable.Workbench);
+        piece_requestBoard.Crafting.Set(PieceManager.CraftingTable.Workbench);
         piece_requestBoard.Category.Add(BuildPieceCategory.Furniture);
         piece_requestBoard.RequiredItems.Add("FineWood", 25, true);
         piece_requestBoard.Name
@@ -274,8 +274,14 @@ internal class Plugin : BaseUnityPlugin
         new TradeItem("Ann,Jane,Joseph,Richard,Ryan,Steve", "OnionSoup", 10, moneyItemName: "Onion");
         new TradeItem("Ann,Jane,Joseph,Richard,Ryan,Steve", "Bread", 45, moneyItemName: "Carrot");
 
+        Materials.AddObjectToFix(bundle, "NPSHouseCrafter");
+        Materials.AddObjectToFix(bundle, "PlayerNPS");
+        Materials.AddObjectToFix(bundle, "NPSPark");
+        Materials.AddObjectToFix(bundle, "NPSHouseWarehouse");
+        Materials.AddObjectToFix(bundle, "NPSHouseHotel");
+        Materials.AddObjectToFix(bundle, "NPSHouseFarm");
         LocalizationManager.Localizer.Load();
-        JFHelperLite.Initialize(Info);
+        JFHelperLite.Initialize(Logger);
         JFHelperLite.FixMusicLocation(bundle, "TestTown");
         InvokeRepeating(nameof(UpdateTime), 2, 2);
     }

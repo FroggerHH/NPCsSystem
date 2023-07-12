@@ -1,15 +1,16 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
+
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <Target Name="ILRepacker" AfterTargets="Build">
         <ItemGroup>
-            <InputAssemblies Include="$(TargetPath)"/>
-            <InputAssemblies Include="D:\Slava\Coding\Utils\ServerSync.dll"/>
-            <InputAssemblies Include="D:\Slava\Coding\Utils\LocationManager.dll"/>
-            <InputAssemblies Include="D:\Slava\Coding\Utils\CreatureManager.dll"/>
-            <InputAssemblies Include="D:\Slava\Coding\Utils\fastJSON.dll"/>
-            <InputAssemblies Include="$(OutputPath)YamlDotNet.dll"/>
+            <InputAssemblies Include="$(TargetPath)" />
+            <InputAssemblies Include="D:\Slava\Coding\Utils\ServerSync.dll" />
+            <InputAssemblies Include="D:\Slava\Coding\Utils\LocationManager.dll" />
+            <InputAssemblies Include="D:\Slava\Coding\Utils\CreatureManager.dll" />
+            <InputAssemblies Include="D:\Slava\Coding\Utils\fastJSON.dll" />
+            <InputAssemblies Include="$(OutputPath)YamlDotNet.dll" />
         </ItemGroup>
         <ILRepack Parallel="true" DebugInfo="true" Internalize="true" InputAssemblies="@(InputAssemblies)"
-                  OutputFile="$(TargetPath)" TargetKind="SameAsPrimaryAssembly" LibraryPath="$(OutputPath)"/>
+                  OutputFile="$(TargetPath)" TargetKind="SameAsPrimaryAssembly" LibraryPath="$(OutputPath)" />
     </Target>
 </Project>
