@@ -16,21 +16,21 @@ public static class JFHelper
 
     private static readonly Dictionary<string, AudioClip> allAudioClips = new();
 
-    //private static ManualLogSource modLogger;
+    private static ManualLogSource modLogger;
     internal static bool isInitialized = false;
 
     internal const string notInitializedErrorMsg =
         $"[JFHelper] _JFHelper is not initialized. Please initialize it Awake like this: JustAFrogger.JFHelper.Initialize(Info);";
 
     internal static string helperNameMsg => $"[" +
-                                            //$"{modLogger.SourceName}" +
+                                            $"{modLogger.SourceName}" +
                                             $"_JFHelper]";
 
     internal static void Initialize(ManualLogSource mod)
     {
         if (isInitialized) return;
         isInitialized = true;
-        //JFHelper.modLogger = mod;
+        JFHelper.modLogger = mod;
         foreach (var audioMixerGroup in Resources.FindObjectsOfTypeAll<AudioMixerGroup>())
         {
             var name = audioMixerGroup.name;
@@ -48,7 +48,7 @@ public static class JFHelper
     public static T Nearest<T>(List<T> all, Vector3 nearestTo) where T : MonoBehaviour
     {
         T current = default(T);
-        //if (modLogger == null) throw new UnityException(notInitializedErrorMsg);
+        if (modLogger == null) throw new UnityException(notInitializedErrorMsg);
 
         float oldDistance = int.MaxValue;
         if (all == null || all.Count == 0) return current;
@@ -69,7 +69,7 @@ public static class JFHelper
     [Description("Returns vanila audio output mixer")]
     public static AudioMixerGroup GetVanilaAudioMixer(string name)
     {
-        //if (modLogger == null) throw new UnityException(notInitializedErrorMsg);
+        if (modLogger == null) throw new UnityException(notInitializedErrorMsg);
         if (allAudioMixers.TryGetValue(name, out var result))
         {
             return result;
@@ -83,7 +83,7 @@ public static class JFHelper
     [Description("Returns vanila audio clip")]
     public static AudioClip GetVanilaMusic(string name, bool showErrorIfCantFindAudioClip)
     {
-        //if (modLogger == null) throw new UnityException(notInitializedErrorMsg);
+        if (modLogger == null) throw new UnityException(notInitializedErrorMsg);
 
         if (allAudioClips.TryGetValue(name, out var result))
         {
@@ -99,49 +99,19 @@ public static class JFHelper
 
     internal static void FixMusicLocation(MusicLocation musicLocation, bool showErrorIfCantFindAudioClip = true)
     {
-        Debug.Log($"0");
         if (!musicLocation) return;
-        Debug.Log($"1");
         var audioSource = musicLocation.GetComponent<AudioSource>();
-        Debug.Log($"2");
-        if (!audioSource)
-        {
-            return;
-        }
-
-        Debug.Log($"3");
-
+        if (!audioSource) return;
 
         var outputAudioMixerGroup = audioSource.outputAudioMixerGroup;
-        Debug.Log($"4");
-        if (!outputAudioMixerGroup)
-        {
-            return;
-        }
-
-        Debug.Log($"5");
-
+        if (!outputAudioMixerGroup) return;
 
         audioSource.outputAudioMixerGroup = GetVanilaAudioMixer(outputAudioMixerGroup.name);
-        Debug.Log($"6");
 
         var audioClip = audioSource.clip;
-        Debug.Log($"7");
-        if (!audioClip)
-        {
-            return;
-        }
-
-        Debug.Log($"8");
+        if (!audioClip) return;
 
         var vanilaMusic = GetVanilaMusic(audioClip.name, showErrorIfCantFindAudioClip);
-        Debug.Log($"9");
-        if (vanilaMusic)
-        {
-            Debug.Log($"10");
-            audioSource.clip = vanilaMusic;
-        }
-
-        Debug.Log($"11");
+        if (vanilaMusic) audioSource.clip = vanilaMusic;
     }
 }
