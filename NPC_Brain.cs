@@ -33,6 +33,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
     internal Trader trader;
 
     public NPC_Profile defaultProfile;
+    public Rigidbody m_body;
     public bool m_despawnInDay;
     public bool m_eventCreature;
     public float m_interceptTime;
@@ -97,6 +98,7 @@ public class NPC_Brain : BaseAI, Hoverable, Interactable
         base.Awake();
         human = m_character as Humanoid;
         trader = GetComponent<Trader>();
+        m_body = GetComponent<Rigidbody>();
         m_despawnInDay = false;
         m_eventCreature = false;
         m_animator.SetBool(MonsterAI.s_sleeping, IsSleeping());

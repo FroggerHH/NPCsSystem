@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace NPCsSystem;
 
@@ -30,5 +31,16 @@ public static class InventoryExt
         inventory.AddItem(item.gameObject, 1);
 
         return true;
+    }
+
+    public static bool ContainsItemByName(this Inventory inventory, string name)
+    {
+        foreach (ItemDrop.ItemData itemData in inventory.m_inventory)
+        {
+            if (itemData.m_shared.m_name == name)
+                return true;
+        }
+
+        return false;
     }
 }

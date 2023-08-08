@@ -126,8 +126,7 @@ namespace NPCsSystem
         public void Init(NPC_Town town)
         {
             this.town = town;
-            var pieces = new List<Piece>();
-            Piece.GetAllPiecesInRadius(transform.position, GetRadius(), pieces);
+            var pieces = PieceExtention.GetAllPiecesInRadius(transform.position, GetRadius());
             foreach (var piece in pieces)
             {
                 if (piece.TryGetComponent(out CraftingStation craftingStation))

@@ -268,26 +268,10 @@ namespace NPCsSystem
             return wearNTears;
         }
 
-        public List<WearNTear> FindAllBuildings()
+        public List<WearNTear> FindAllBuildings(NPC_House house = null)
         {
-            var buildings = new List<Piece>();
             var wearNTears = new List<WearNTear>();
-            Piece.GetAllPiecesInRadius(transform.position, GetRadius(), buildings);
-            foreach (var piece in buildings)
-            {
-                var wearNTear = piece.GetComponent<WearNTear>();
-                if (!wearNTear) continue;
-                wearNTears.Add(wearNTear);
-            }
-
-            return wearNTears;
-        }
-
-        public List<WearNTear> FindAllBuildings(NPC_House house)
-        {
-            var buildings = new List<Piece>();
-            var wearNTears = new List<WearNTear>();
-            Piece.GetAllPiecesInRadius(house.transform.position, house.GetRadius(), buildings);
+            var buildings = PieceExtention.GetAllPiecesInRadius(house.transform.position, house ? house.GetRadius() : GetRadius());
             foreach (var piece in buildings)
             {
                 var wearNTear = piece.GetComponent<WearNTear>();

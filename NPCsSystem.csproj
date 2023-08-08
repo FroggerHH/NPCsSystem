@@ -149,6 +149,7 @@
         <Compile Include="Patch\TraderPatch.cs" />
         <Compile Include="Patch\UpdateNPC_AI.cs" />
         <Compile Include="Patch\ZNetScenePatch.cs" />
+        <Compile Include="PieceExtention.cs" />
         <Compile Include="Plugin.cs" />
         <Compile Include="ConfigurationManagerAttributes.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
