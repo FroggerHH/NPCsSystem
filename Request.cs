@@ -11,15 +11,15 @@ public class Request
     //public int ID;
     public RequestType requestType;
     public string npcName;
-    public Dictionary<string, int> items = new();
     public string thingName;
+    public Dictionary<string, int> items = new();
 
     public Request(RequestType requestType, string npcName, Dictionary<string, int> items = null,
         string thingName = "")
     {
         this.requestType = requestType;
         this.npcName = npcName;
-        this.items = items == null ? new() : items;
+        this.items = items == null ? new Dictionary<string, int>() : items;
         this.thingName = thingName;
         //ID = ID_counter;
         //ID_counter++;

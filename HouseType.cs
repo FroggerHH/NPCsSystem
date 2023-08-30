@@ -1,20 +1,17 @@
-using System;
+namespace NPCsSystem;
 
-namespace NPCsSystem
+public enum HouseType
 {
-    public enum HouseType
-    {
-        None,
-        Housing,
-        ProfessionHouse,
-        Warehouse,
-        Other,
-        HousingAndProfessionHouse,
-        HousingAndWarehouse,
-        WarehouseAndProfessionHouse,
-        Entertainment,
-        EntertainmentAndProfessionHouse,
-        TownHall,
-        All
-    }
+    None,
+    Housing,
+    ProfessionHouse,
+    Warehouse,
+    Other,
+    HousingAndProfessionHouse,
+    HousingAndWarehouse,
+    WarehouseAndProfessionHouse,
+    Entertainment,
+    EntertainmentAndProfessionHouse,
+    TownHall,
+    All
 }

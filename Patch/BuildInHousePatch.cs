@@ -1,74 +1,66 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
+using Extensions;
 using HarmonyLib;
-using ItemManager;
+using JetBrains.Annotations;
 using UnityEngine;
-using static NPCsSystem.Plugin;
-using static Heightmap;
-using static Heightmap.Biome;
-using static ZoneSystem;
-using static ZoneSystem.ZoneVegetation;
+using UnityEngine.SceneManagement;
 
 namespace NPCsSystem;
 
 [HarmonyPatch]
 public class BuildInHousePatch
 {
-    [HarmonyPatch(typeof(Piece), nameof(Piece.Awake)), HarmonyPostfix, HarmonyWrapSafe]
-    public static void PiecePlace(Piece __instance)
+    [HarmonyPatch(typeof(Piece), nameof(Piece.Awake))]
+    [HarmonyPostfix]
+    [HarmonyWrapSafe]
+    public static void PiecePlace([NotNull] Piece __instance)
     {
-        //__instance.StartCoroutine(WaitForPlace(__instance));
-        PlacePieceInTown(__instance);
+        if (SceneManager.GetActiveScene().name != "main") return;
+        __instance.StartCoroutine(WaitForPlace(__instance));
     }
 
-    [HarmonyPatch(typeof(Piece), nameof(Piece.OnDestroy)), HarmonyPrefix, HarmonyWrapSafe]
-    public static void PieceDestroy(Piece __instance)
+
+    [HarmonyPatch(typeof(Piece), nameof(Piece.OnDestroy))]
+    [HarmonyPrefix]
+    [HarmonyWrapSafe]
+    public static void PieceDestroy([NotNull] Piece __instance)
     {
-        if (!__instance.IsPlacedByPlayer() || Game.instance.IsShuttingDown()) return;
-        var house = NPC_House.FindHouse(__instance.transform.position);
+        if (SceneManager.GetActiveScene().name != "main") return;
+        OnDestroy(__instance);
+    }
+
+    private static void OnDestroy(Piece piece)
+    {
+        if (!piece.m_nview || piece.m_nview.m_ghost || Game.instance.IsShuttingDown()) return;
+        RemoveRefs(piece);
+    }
+
+    private static void RemoveRefs(Piece piece)
+    {
+        Plugin.Debug($"RemoveRefs called on {piece.GetPrefabName()}");
+        var house = NPC_House.FindHouse(piece.transform.position);
         if (!house) return;
+        if (piece.TryGetComponent(out Bed bed)) house.RemoveBed(bed);
 
-        if (__instance.TryGetComponent(out Bed bed))
-        {
-            house.RemoveBed(bed);
-        }
+        else if (piece.m_category == Piece.PieceCategory.Crafting &&
+                 piece.TryGetComponent(out CraftingStation craftingStation))
+            house.RemoveCraftingStation(craftingStation);
 
-        if (__instance.TryGetComponent(out CraftingStation craftingStatione))
-        {
-            house.RemoveCraftingStation(craftingStatione);
-        }
+        else if (piece.TryGetComponent(out Container container)) house.RemoveChest(container);
 
-        if (__instance.TryGetComponent(out Container container))
-        {
-            house.RemoveChest(container);
-        }
+        else if (piece.TryGetComponent(out Door door)) house.RemoveDoor(door);
 
-        if (__instance.TryGetComponent(out Door door))
-        {
-            house.RemoveDoor(door);
-        }
-
-        if (__instance.TryGetComponent(out Sign sign))
-        {
-            house.RemoveSign(sign);
-        }
-
-        if (__instance.TryGetComponent(out Plant plant))
-        {
-            house.RemovePlant(plant);
-        }
-
-        if (__instance.TryGetComponent(out Pickable pickable))
-        {
-            house.RemovePickable(pickable);
-        }
+        else if (piece.TryGetComponent(out Sign sign)) house.RemoveSign(sign);
     }
 
     private static IEnumerator WaitForPlace(Piece piece)
     {
-        yield return new WaitUntil(() => piece.IsPlacedByPlayer());
+        if (piece && piece.m_nview)
+        {
+            yield return new WaitUntil(() => piece.m_nview.m_ghost == false);
 
-        PlacePieceInTown(piece);
+            PlacePieceInTown(piece);
+        }
     }
 
     private static void PlacePieceInTown(Piece piece)
@@ -76,34 +68,13 @@ public class BuildInHousePatch
         var house = NPC_House.FindHouse(piece.transform.position);
         if (!house) return;
 
-        if (piece.TryGetComponent(out Bed bed))
-        {
-            house.AddBed(bed);
-        }
+        if (piece.TryGetComponent(out Bed bed)) house.AddBed(bed);
 
-        if (piece.TryGetComponent(out CraftingStation craftingStatione))
-        {
-            house.AddCraftingStation(craftingStatione);
-        }
+        else if (piece.m_category == Piece.PieceCategory.Crafting &&
+                 piece.TryGetComponent(out CraftingStation craftingStation)) house.AddCraftingStation(craftingStation);
 
-        if (piece.TryGetComponent(out Container container))
-        {
-            house.AddChest(container);
-        }
+        else if (piece.TryGetComponent(out Container container)) house.AddChest(container);
 
-        if (piece.TryGetComponent(out Sign sign))
-        {
-            house.AddSign(sign);
-        }
-
-        if (piece.TryGetComponent(out Plant plant))
-        {
-            house.AddPlant(plant);
-        }
-
-        if (piece.TryGetComponent(out Pickable pickable))
-        {
-            house.AddPickable(pickable);
-        }
+        else if (piece.TryGetComponent(out Sign sign)) house.AddSign(sign);
     }
 }

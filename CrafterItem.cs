@@ -3,9 +3,22 @@ using UnityEngine;
 
 namespace NPCsSystem;
 
-[Serializable, HideInInspector]
+[Serializable]
+[HideInInspector]
 public class CrafterItem
 {
+    public string prefabName;
+    public string m_requiredGlobalKey;
+    public int minLevelToMake = 1;
+    public int minLevelToUpgrade = 2;
+    public int maxCountToCraft;
+
+    [Tooltip("Crafter can upgrade weapons to levels exceeding the maximum vanilla level")]
+    public int maxQuantity = 10;
+
+    [HideInInspector] internal ItemDrop prefab;
+    [HideInInspector] internal Recipe recipe;
+
     public CrafterItem(string prefabName, string m_requiredGlobalKey, int minLevelToMake, int minLevelToUpgrade,
         int maxQuantity)
     {
@@ -21,18 +34,6 @@ public class CrafterItem
         this.prefabName = prefabName;
         this.maxCountToCraft = maxCountToCraft;
     }
-
-    [HideInInspector] internal ItemDrop prefab;
-    [HideInInspector] internal Recipe recipe;
-
-    public string prefabName;
-    public string m_requiredGlobalKey;
-    public int minLevelToMake = 1;
-    public int minLevelToUpgrade = 2;
-    public int maxCountToCraft;
-
-    [Tooltip("Crafter can upgrade weapons to levels exceeding the maximum vanilla level")]
-    public int maxQuantity = 10;
 
 
     [Serializable]

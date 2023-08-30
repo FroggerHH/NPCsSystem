@@ -1,18 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Extensions.Valheim;
 using UnityEngine;
 
 namespace NPCsSystem;
 
 public class RequestBoard : MonoBehaviour, Interactable, Hoverable
 {
+    private readonly List<GameObject> notes = new();
+    private readonly StringBuilder sb = new();
     private Piece m_piece;
     private ZNetView m_view;
     private NPC_Town town;
-    private StringBuilder sb = new StringBuilder();
-    private List<GameObject> notes = new();
 
     private void Awake()
     {
@@ -20,18 +20,22 @@ public class RequestBoard : MonoBehaviour, Interactable, Hoverable
         m_view = GetComponent<ZNetView>();
 
         var notesTransform = Utils.FindChild(transform, "Notes");
-        for (int i = 0; i < notesTransform.childCount; i++)
-        {
-            notes.Add(notesTransform.GetChild(i).gameObject);
-        }
+        for (var i = 0; i < notesTransform.childCount; i++) notes.Add(notesTransform.GetChild(i).gameObject);
+
+        var signPos = transform.position + new Vector3(0, 4, 0.25f);
+        //var sign = Piece.s_allPieces.Find(x => x.transform.position == signPos)?.GetComponent<Sign>();
+        //var prefab = ZNetScene.instance.GetPrefab("sign");
+        //if (!sign && prefab) sign = Instantiate(prefab, signPos, Quaternion.identity).GetComponent<Sign>();
     }
 
-    internal void Init(NPC_Town _town)
+    public string GetHoverText()
     {
-        town = _town;
-        town.onRequestsChanged += UpdateHover;
-        UpdateHover();
-        InvokeRepeating(nameof(UpdateHover), 3, 3);
+        return sb.ToString();
+    }
+
+    public string GetHoverName()
+    {
+        return m_piece.m_name.Localize();
     }
 
 
@@ -46,9 +50,12 @@ public class RequestBoard : MonoBehaviour, Interactable, Hoverable
         return false;
     }
 
-    public string GetHoverText()
+    internal void Init(NPC_Town _town)
     {
-        return sb.ToString();
+        town = _town;
+        town.onRequestsChanged += UpdateHover;
+        UpdateHover();
+        InvokeRepeating(nameof(UpdateHover), 3, 3);
     }
 
     private void UpdateHover()
@@ -61,10 +68,7 @@ public class RequestBoard : MonoBehaviour, Interactable, Hoverable
         if (list.Count == 0)
         {
             sb.AppendLine("$noRequests".Localize());
-            foreach (var note in notes)
-            {
-                note.SetActive(false);
-            }
+            foreach (var note in notes) note.SetActive(false);
         }
         else
         {
@@ -75,38 +79,21 @@ public class RequestBoard : MonoBehaviour, Interactable, Hoverable
                 var request = list[index];
                 var requestsFor = string.Empty;
                 if (request.requestType == RequestType.Bed)
-                {
                     requestsFor = "$piece_bed".Localize();
-                }
                 else if (request.requestType == RequestType.Food)
-                {
                     requestsFor = "$npc_food".Localize();
-                }
                 else if (request.requestType == RequestType.Thing)
-                {
                     requestsFor = request.thingName.Localize();
-                }
                 else if (request.requestType == RequestType.Item)
-                {
-                    int i = 0;
-                    foreach (var item in request.items)
-                    {
-                        i++;
-                        requestsFor +=
-                            $"{item.Value} {ObjectDB.instance.GetItemPrefab(item.Key).GetComponent<ItemDrop>().m_itemData.m_shared.m_name.Localize()}{(i != request.items.Count ? ", " : "")}";
-                    }
-                }
+                    requestsFor += string.Join(", ",
+                        request.items.Select(x =>
+                            $"{x.Value} {ObjectDB.instance.GetItemPrefab(x.Key).GetComponent<ItemDrop>().m_itemData.m_shared.m_name.Localize()}"));
 
                 sb.AppendLine($"{index + 1}. {request.npcName} {"$request_asksFor".Localize()} {requestsFor}");
             }
 
 
-            for (int i = 0; i < notes.Count; i++)
-            {
-                notes[i].SetActive(i < list.Count);
-            }
+            for (var i = 0; i < notes.Count; i++) notes[i].SetActive(i < list.Count);
         }
     }
-
-    public string GetHoverName() => m_piece.m_name.Localize();
 }
